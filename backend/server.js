@@ -49,6 +49,13 @@ app.use(express.json());
 app.use(express.static(path.join(import.meta.dirname , "../frontend")))
 
 // API routes
+app.post("/api/auth", (req, res) => {
+  const { password } = req.body;
+  if (!process.env.APP_PASSWORD) return res.status(500).json({ error: "Password not configured" });
+  if (password === process.env.APP_PASSWORD) return res.json({ ok: true });
+  return res.status(401).json({ ok: false });
+});
+
 app.use("/api", salesRoutes);
 
 app.get("/", (req, res) => {

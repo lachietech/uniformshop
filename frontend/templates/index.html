@@ -7,7 +7,18 @@
     <link rel="stylesheet" href="../css/styles.css">
 </head>
 <body>
-    <div class="container">
+    <!-- Password gate -->
+    <div id="passwordGate">
+        <div class="password-box">
+            <h2>Sales Data Manager</h2>
+            <p>Enter password to continue</p>
+            <input type="password" id="passwordInput" placeholder="Password" autofocus />
+            <button onclick="checkPassword()">Enter</button>
+            <p id="passwordError" class="password-error"></p>
+        </div>
+    </div>
+
+    <div class="container" id="appContainer" style="display:none">
         <header>
             <h1>📊 Sales Data Manager</h1>
             <p>Manage uniform sales data, compare performance, and project future sales</p>
@@ -127,5 +138,36 @@
     </div>
 
     <script src="../js/app.js"></script>
+    <script>
+        async function checkPassword() {
+            const input = document.getElementById('passwordInput').value;
+            const btn = document.querySelector('#passwordGate button');
+            btn.disabled = true;
+            try {
+                const res = await fetch('/api/auth', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ password: input })
+                });
+                if (res.ok) {
+                    document.getElementById('passwordGate').style.display = 'none';
+                    document.getElementById('appContainer').style.display = 'block';
+                } else {
+                    document.getElementById('passwordError').textContent = 'Incorrect password';
+                    document.getElementById('passwordInput').value = '';
+                    document.getElementById('passwordInput').focus();
+                }
+            } catch (e) {
+                document.getElementById('passwordError').textContent = 'Could not connect to server';
+            } finally {
+                btn.disabled = false;
+            }
+        }
+        document.addEventListener('DOMContentLoaded', () => {
+            document.getElementById('passwordInput').addEventListener('keydown', (e) => {
+                if (e.key === 'Enter') checkPassword();
+            });
+        });
+    </script>
 </body>
 </html>
