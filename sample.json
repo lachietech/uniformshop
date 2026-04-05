@@ -1,0 +1,62 @@
+{
+  "store": "default",
+  "inventoryDate": "2026-01",
+  "totalStockValue": 20816.84,
+  "categories": [
+    {
+      "category": "Shirts",
+      "costPrice": 22.99,
+      "items": [
+        { "size": "4", "openingStock": 38, "purchases": 40, "stockOnHand": 26, "sales": 52, "valueOfStock": 597.74 },
+        { "size": "6", "openingStock": 34, "purchases": 40, "stockOnHand": 21, "sales": 53, "valueOfStock": 482.79 },
+        { "size": "8", "openingStock": 27, "purchases": 59, "stockOnHand": 48, "sales": 38, "valueOfStock": 1103.52 },
+        { "size": "10", "openingStock": 47, "purchases": 51, "stockOnHand": 57, "sales": 41, "valueOfStock": 1310.43 },
+        { "size": "12", "openingStock": 69, "purchases": 0, "stockOnHand": 42, "sales": 27, "valueOfStock": 965.58 },
+        { "size": "14", "openingStock": 48, "purchases": 20, "stockOnHand": 46, "sales": 22, "valueOfStock": 1057.54 },
+        { "size": "XS", "openingStock": 42, "purchases": 0, "stockOnHand": 27, "sales": 15, "valueOfStock": 620.73 },
+        { "size": "S", "openingStock": 52, "purchases": 0, "stockOnHand": 40, "sales": 12, "valueOfStock": 919.60 },
+        { "size": "Med", "openingStock": 38, "purchases": 10, "stockOnHand": 36, "sales": 12, "valueOfStock": 827.64 },
+        { "size": "Large", "openingStock": 22, "purchases": 11, "stockOnHand": 20, "sales": 13, "valueOfStock": 459.80 },
+        { "size": "XL", "openingStock": 23, "purchases": 0, "stockOnHand": 22, "sales": 1, "valueOfStock": 505.78 },
+        { "size": "2XL", "openingStock": 26, "purchases": 0, "stockOnHand": 20, "sales": 6, "valueOfStock": 459.80 }
+      ]
+    },
+    {
+      "category": "Shorts",
+      "costPrice": 20.24,
+      "items": [
+        { "size": "4", "openingStock": 20, "purchases": 31, "stockOnHand": 39, "sales": 12, "valueOfStock": 789.36 },
+        { "size": "6", "openingStock": 22, "purchases": 31, "stockOnHand": 28, "sales": 25, "valueOfStock": 566.72 },
+        { "size": "8", "openingStock": 20, "purchases": 30, "stockOnHand": 30, "sales": 20, "valueOfStock": 607.20 },
+        { "size": "10", "openingStock": 38, "purchases": 0, "stockOnHand": 22, "sales": 16, "valueOfStock": 445.28 },
+        { "size": "12", "openingStock": 59, "purchases": 0, "stockOnHand": 44, "sales": 15, "valueOfStock": 890.56 },
+        { "size": "14", "openingStock": 41, "purchases": 0, "stockOnHand": 33, "sales": 8, "valueOfStock": 667.92 },
+        { "size": "S", "openingStock": 44, "purchases": 0, "stockOnHand": 34, "sales": 10, "valueOfStock": 688.16 },
+        { "size": "Med", "openingStock": 29, "purchases": 0, "stockOnHand": 27, "sales": 2, "valueOfStock": 546.48 },
+        { "size": "Large", "openingStock": 33, "purchases": 0, "stockOnHand": 29, "sales": 4, "valueOfStock": 586.96 }
+      ]
+    },
+    {
+      "category": "Hat",
+      "costPrice": null,
+      "items": [
+        { "size": "S/M", "openingStock": 0, "purchases": 0, "stockOnHand": 0, "sales": 0, "valueOfStock": 0 },
+        { "size": "L/XL", "openingStock": 0, "purchases": 0, "stockOnHand": 0, "sales": 0, "valueOfStock": 0 }
+      ]
+    },
+    {
+      "category": "Skorts",
+      "costPrice": 24.75,
+      "items": [
+        { "size": "4", "openingStock": 37, "purchases": 0, "stockOnHand": 22, "sales": 15, "valueOfStock": 544.50 },
+        { "size": "6", "openingStock": 39, "purchases": 0, "stockOnHand": 28, "sales": 11, "valueOfStock": 693.00 },
+        { "size": "8", "openingStock": 23, "purchases": 0, "stockOnHand": 20, "sales": 3, "valueOfStock": 495.00 },
+        { "size": "10", "openingStock": 37, "purchases": 0, "stockOnHand": 30, "sales": 7, "valueOfStock": 742.50 },
+        { "size": "12", "openingStock": 29, "purchases": 0, "stockOnHand": 22, "sales": 7, "valueOfStock": 544.50 },
+        { "size": "14", "openingStock": 38, "purchases": 0, "stockOnHand": 38, "sales": 0, "valueOfStock": 940.50 },
+        { "size": "16", "openingStock": 21, "purchases": 0, "stockOnHand": 20, "sales": 1, "valueOfStock": 495.00 },
+        { "size": "18", "openingStock": 51, "purchases": 0, "stockOnHand": 51, "sales": 0, "valueOfStock": 1262.25 }
+      ]
+    }
+  ]
+}
