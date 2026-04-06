@@ -1,0 +1,33 @@
+<section id="stock" class="section active">
+    <div class="card">
+        <div class="pos-header-row">
+            <div>
+                <h2>Stock Manager</h2>
+                <p>Manage price, on-hand stock, warehouse stock, and product status from one inventory table.</p>
+            </div>
+            <button id="posAddProductBtn" class="btn btn-primary" type="button">Add POS Product</button>
+        </div>
+        <div class="filters">
+            <button id="stockRefreshBtn" class="btn btn-secondary" type="button">Refresh Stock</button>
+            <button id="stockSyncBtn" class="btn btn-secondary" type="button">Sync Products From Sales</button>
+        </div>
+        <div class="table-container">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Name</th>
+                        <th>Category</th>
+                        <th>Size</th>
+                        <th>SKU</th>
+                        <th>Price</th>
+                        <th>On Hand</th>
+                        <th>Warehouse</th>
+                        <th>Status</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody id="stockTableBody"></tbody>
+            </table>
+        </div>
+    </div>
+</section>

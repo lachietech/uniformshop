@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{PAGE_TITLE}} | Harris Fields State School Uniform Shop Manager</title>
+    <link rel="stylesheet" href="/css/styles.css">
+</head>
+<body data-page="{{PAGE_ID}}">
+    <div class="container" id="appContainer">
+        <header>
+            <div class="header-shell">
+                <div>
+                    <span class="brand-kicker">Harris Fields State School</span>
+                    <h1>Uniform Shop Manager</h1>
+                    <p>Manage sales performance, forecasting, stock planning, and point of sale operations in one place</p>
+                </div>
+                <div id="sessionPanel" class="session-panel hidden">
+                    <span class="session-label">Signed in as</span>
+                    <strong id="sessionUsername">-</strong>
+                    <span id="sessionRole" class="session-role">-</span>
+                    <button id="logoutBtn" class="btn btn-secondary" type="button">Sign Out</button>
+                </div>
+            </div>
+        </header>
+
+        <nav class="navbar">
+            <button class="nav-btn" data-section="dashboard" data-route="/dashboard" type="button">Dashboard</button>
+            <button class="nav-btn" data-section="view" data-route="/sales-records" type="button">Sales Records</button>
+            <button class="nav-btn" data-section="pos" data-route="/pos" type="button">Point of Sale</button>
+            <button class="nav-btn" data-section="receipts" data-route="/receipts" type="button">Receipts</button>
+            <button class="nav-btn" data-section="stock" data-route="/stock-manager" type="button">Stock Manager</button>
+            <button id="accountNavBtn" class="nav-btn" data-section="account" data-route="/account" type="button">My Account</button>
+            <button id="accessNavBtn" class="nav-btn hidden" data-section="access" data-route="/access-management" type="button">Access Management</button>
+        </nav>
+
+        {{PAGE_CONTENT}}
+    </div>
+
+    {{PAGE_MODALS}}
+
+    <script id="sessionUserData" type="application/json">{{SESSION_USER_JSON}}</script>
+
+    <script src="/js/core.js"></script>
+    <script src="/js/dashboard.js"></script>
+    <script src="/js/sales.js"></script>
+    <script src="/js/pos.js"></script>
+    <script src="/js/receipts.js"></script>
+    <script src="/js/stock.js"></script>
+    <script src="/js/access.js"></script>
+    <script src="/js/navigation.js"></script>
+    <script src="/js/auth.js"></script>
+    <script src="/js/app.js"></script>
+</body>
+</html>

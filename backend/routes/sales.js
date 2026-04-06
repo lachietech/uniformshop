@@ -1,5 +1,7 @@
 import express from "express";
 import Sales from "../models/Sales.js";
+import { syncPosProductsFromSalesRecords } from "../services/posIntegration.js";
+import { compareCategoryThenSize, compareSizeValues } from "../utils/sizeOrder.js";
 
 const router = express.Router();
 
@@ -247,10 +249,7 @@ function buildDashboardMetrics(records) {
   });
 
   sizeSnapshot.sort((left, right) => {
-    if (left.category !== right.category) {
-      return left.category.localeCompare(right.category);
-    }
-    return left.size.localeCompare(right.size, undefined, { numeric: true, sensitivity: "base" });
+    return compareCategoryThenSize(left, right);
   });
 
   const forecast = buildForecastFromSeries(monthlySeries, 12);
@@ -330,10 +329,7 @@ function buildDashboardMetrics(records) {
     });
 
     sizeBreakdown.sort((left, right) => {
-      if (left.category !== right.category) {
-        return left.category.localeCompare(right.category);
-      }
-      return left.size.localeCompare(right.size, undefined, { numeric: true, sensitivity: "base" });
+      return compareCategoryThenSize(left, right);
     });
 
     const groupedCategories = [];
@@ -416,10 +412,7 @@ function buildDashboardMetrics(records) {
   });
 
   yearProjectionSizeBreakdown.sort((left, right) => {
-    if (left.category !== right.category) {
-      return left.category.localeCompare(right.category);
-    }
-    return left.size.localeCompare(right.size, undefined, { numeric: true, sensitivity: "base" });
+    return compareCategoryThenSize(left, right);
   });
 
   const progressByCategory = new Map();
@@ -521,7 +514,7 @@ function buildDashboardMetrics(records) {
     }
     entry.likelihoodOfReachingProjection = categoryLikelihood;
     
-    entry.sizes.sort((left, right) => left.size.localeCompare(right.size, undefined, { numeric: true, sensitivity: "base" }));
+    entry.sizes.sort((left, right) => compareSizeValues(left.size, right.size));
     progressCategoryBreakdown.push(entry);
   }
   progressCategoryBreakdown.sort((left, right) => left.category.localeCompare(right.category));
@@ -587,7 +580,8 @@ router.get("/sales", async (req, res) => {
     if (category) filter.category = category;
     if (size) filter.size = size;
     
-    const sales = await Sales.find(filter).sort({ category: 1, size: 1 });
+    const sales = await Sales.find(filter).lean();
+    sales.sort((left, right) => compareCategoryThenSize(left, right));
     res.json(sales);
   } catch (error) {
     res.status(500).json({ error: error.message });
@@ -632,6 +626,7 @@ router.post("/sales", async (req, res) => {
     
     const newSale = new Sales({ category, size, months, sales });
     await newSale.save();
+    await syncPosProductsFromSalesRecords();
     res.status(201).json(newSale);
   } catch (error) {
     res.status(400).json({ error: error.message });
@@ -653,6 +648,7 @@ router.put("/sales/:id", async (req, res) => {
       { new: true, runValidators: true }
     );
     if (!updated) return res.status(404).json({ error: "Sales record not found" });
+    await syncPosProductsFromSalesRecords();
     res.json(updated);
   } catch (error) {
     res.status(400).json({ error: error.message });
@@ -711,6 +707,7 @@ router.delete("/sales/:id", async (req, res) => {
   try {
     const deleted = await Sales.findByIdAndDelete(req.params.id);
     if (!deleted) return res.status(404).json({ error: "Sales record not found" });
+    await syncPosProductsFromSalesRecords();
     res.json({ message: "Sales record deleted successfully", deleted });
   } catch (error) {
     res.status(500).json({ error: error.message });
@@ -741,10 +738,12 @@ router.get("/metadata/categories", async (req, res) => {
 // Get sizes for a category
 router.get("/metadata/categories/:category/sizes", async (req, res) => {
   try {
-    const sizes = await Sales.find({ category: req.params.category }).select("size");
+    const sizes = await Sales.find({ category: req.params.category }).select("size").lean();
+    const uniqueSizes = [...new Set(sizes.map((item) => String(item.size || "").trim()).filter(Boolean))];
+    uniqueSizes.sort(compareSizeValues);
     res.json({ 
       category: req.params.category,
-      sizes: sizes.map(s => s.size)
+      sizes: uniqueSizes
     });
   } catch (error) {
     res.status(500).json({ error: error.message });

@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sign In | Harris Fields State School Uniform Shop Manager</title>
+    <link rel="stylesheet" href="/css/styles.css">
+</head>
+<body>
+    <div id="passwordGate" style="display:flex">
+        <div class="password-box">
+            <div id="loginPanel">
+                <span class="brand-kicker">Harris Fields State School</span>
+                <h2>Uniform Shop Manager</h2>
+                <p>Sign in once to start your secure session.</p>
+                <input type="text" id="usernameInput" placeholder="Username" autocomplete="username" />
+                <input type="password" id="passwordInput" placeholder="Password" autocomplete="current-password" autofocus />
+                <button id="loginBtn" type="button">Sign In</button>
+                <p id="passwordError" class="password-error"></p>
+            </div>
+
+            <div id="setupPanel" class="hidden auth-panel-block">
+                <span class="brand-kicker">Initial Setup</span>
+                <h2>Create the first administrator</h2>
+                <p>This is a one-time setup. The first account created will become the administrator for the platform.</p>
+                <input type="text" id="setupUsernameInput" placeholder="Admin username" autocomplete="username" />
+                <input type="password" id="setupPasswordInput" placeholder="Create password" autocomplete="new-password" />
+                <input type="password" id="setupConfirmPasswordInput" placeholder="Confirm password" autocomplete="new-password" />
+                <button id="setupBtn" type="button">Create Administrator</button>
+                <p id="setupError" class="password-error"></p>
+            </div>
+        </div>
+    </div>
+
+    <script src="/js/signin.js"></script>
+</body>
+</html>
