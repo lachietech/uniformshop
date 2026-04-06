@@ -75,9 +75,12 @@ router.put("/:id", async (req, res) => {
       category,
       size,
       sku,
-      active,
-      salesRecordId: salesRecordId || null
+      active
     };
+
+    if (salesRecordId !== undefined) {
+      updatePayload.salesRecordId = salesRecordId || null;
+    }
 
     if (price !== undefined) {
       updatePayload.price = parseFloat(price);

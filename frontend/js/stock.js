@@ -25,7 +25,7 @@ async function loadStockSection() {
         return;
     }
 
-    body.innerHTML = '<tr><td colspan="9" class="loading">Loading stock...</td></tr>';
+    body.innerHTML = '<tr><td colspan="8" class="loading">Loading stock...</td></tr>';
 
     try {
         const response = await fetch('/api/pos/products/all');
@@ -38,7 +38,7 @@ async function loadStockSection() {
         const inventoryRows = dedupeStockProducts(products);
 
         if (!inventoryRows.length) {
-            body.innerHTML = '<tr><td colspan="9" class="loading">No stock products found.</td></tr>';
+            body.innerHTML = '<tr><td colspan="8" class="loading">No stock products found.</td></tr>';
             return;
         }
 
@@ -52,15 +52,7 @@ async function loadStockSection() {
                 <td>${Number(product.stockOnHand || 0)}</td>
                 <td>${Number(product.stockInWarehouse || 0)}</td>
                 <td>
-                    <span class="pos-status-pill ${product.active ? 'pos-status-active' : 'pos-status-inactive'}">
-                        ${product.active ? 'Active' : 'Inactive'}
-                    </span>
-                </td>
-                <td>
                     <button class="btn btn-secondary btn-small" data-stock-edit="${product._id}">Edit</button>
-                    <button class="btn btn-danger btn-small" data-stock-toggle="${product._id}">
-                        ${product.active ? 'Deactivate' : 'Activate'}
-                    </button>
                 </td>
             </tr>
         `).join('');
@@ -74,38 +66,8 @@ async function loadStockSection() {
             });
         });
 
-        body.querySelectorAll('[data-stock-toggle]').forEach((button) => {
-            button.addEventListener('click', async () => {
-                const product = inventoryRows.find((item) => item._id === button.getAttribute('data-stock-toggle'));
-                if (!product) return;
-
-                try {
-                    const response = await fetch(`/api/pos/products/${product._id}`, {
-                        method: 'PUT',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({
-                            name: product.name,
-                            category: product.category,
-                            size: product.size,
-                            sku: product.sku,
-                            price: Number(product.price || 0),
-                            stockOnHand: Number(product.stockOnHand || 0),
-                            stockInWarehouse: Number(product.stockInWarehouse || 0),
-                            active: !product.active
-                        })
-                    });
-                    const result = await response.json();
-                    if (!response.ok) {
-                        throw new Error(result.error || 'Status update failed');
-                    }
-                    await loadStockSection();
-                } catch (error) {
-                    alert(error.message);
-                }
-            });
-        });
     } catch (error) {
-        body.innerHTML = `<tr><td colspan="9" style="color: #d9534f;">${stockApp.escapeHtml(error.message)}</td></tr>`;
+        body.innerHTML = `<tr><td colspan="8" style="color: #d9534f;">${stockApp.escapeHtml(error.message)}</td></tr>`;
     }
 }
 
@@ -165,10 +127,6 @@ function getProductDedupeKey(product) {
 }
 
 function shouldReplaceProduct(existing, candidate) {
-    if (!!candidate.active !== !!existing.active) {
-        return !!candidate.active;
-    }
-
     const existingTime = Date.parse(existing.updatedAt || existing.createdAt || 0);
     const candidateTime = Date.parse(candidate.updatedAt || candidate.createdAt || 0);
 
