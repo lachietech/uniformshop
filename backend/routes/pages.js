@@ -18,6 +18,7 @@ const appRoutes = [
   "/access-management",
   "/account"
 ];
+const allowedNextTargets = new Set(["/dashboard", ...appRoutes]);
 
 async function requirePageAuth(req, res, next) {
   const user = await resolveAuthenticatedUser(req, res);
@@ -34,10 +35,13 @@ function getSafeNextTarget(nextValue) {
   if (typeof nextValue !== "string") {
     return "/dashboard";
   }
-  if (!nextValue.startsWith("/") || nextValue.startsWith("//") || nextValue.startsWith("/signin")) {
+
+  const trimmedValue = nextValue.trim();
+  if (!allowedNextTargets.has(trimmedValue)) {
     return "/dashboard";
   }
-  return nextValue;
+
+  return trimmedValue;
 }
 
 router.get("/", async (req, res) => {

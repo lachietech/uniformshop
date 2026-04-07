@@ -1,7 +1,56 @@
+const allowedNextTargets = new Set([
+    '/dashboard',
+    '/sales-records',
+    '/pos',
+    '/receipts',
+    '/stock-manager',
+    '/access-management',
+    '/account'
+]);
+
+function readCookie(cookieName) {
+    const cookieSource = document.cookie || '';
+    const cookies = cookieSource.split(';').map((entry) => entry.trim()).filter(Boolean);
+    const match = cookies.find((entry) => entry.startsWith(`${cookieName}=`));
+    if (!match) {
+        return '';
+    }
+    return decodeURIComponent(match.substring(cookieName.length + 1));
+}
+
+function getCsrfToken() {
+    return readCookie('uniform_shop_csrf_token');
+}
+
+async function fetchWithCsrf(resource, options = {}) {
+    const requestOptions = { ...options };
+    const method = String(requestOptions.method || 'GET').toUpperCase();
+    const isMutatingMethod = !['GET', 'HEAD', 'OPTIONS', 'TRACE'].includes(method);
+
+    if (isMutatingMethod) {
+        const headers = new Headers(requestOptions.headers || {});
+        const csrfToken = getCsrfToken();
+        if (csrfToken && !headers.has('x-csrf-token')) {
+            headers.set('x-csrf-token', csrfToken);
+        }
+        requestOptions.headers = headers;
+    }
+
+    return fetch(resource, requestOptions);
+}
+
+async function preloadCsrfToken() {
+    try {
+        await fetch('/api/csrf-token', { cache: 'no-store' });
+    } catch (error) {
+        // Best effort: page-level GET requests usually provide a token cookie already.
+    }
+}
+
 function getSafeNextTarget() {
     const params = new URLSearchParams(window.location.search);
-    const nextValue = params.get('next') || '/dashboard';
-    if (!nextValue.startsWith('/') || nextValue.startsWith('//') || nextValue.startsWith('/signin')) {
+    const nextValue = (params.get('next') || '/dashboard').trim();
+    if (!allowedNextTargets.has(nextValue)) {
         return '/dashboard';
     }
     return nextValue;
@@ -88,7 +137,7 @@ async function login() {
     }
 
     try {
-        const response = await fetch('/api/auth/login', {
+        const response = await fetchWithCsrf('/api/auth/login', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ username, password })
@@ -127,7 +176,7 @@ async function runInitialSetup() {
     }
 
     try {
-        const response = await fetch('/api/auth/setup', {
+        const response = await fetchWithCsrf('/api/auth/setup', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ username, password, confirmPassword })
@@ -191,6 +240,7 @@ function setupEventHandlers() {
 
 document.addEventListener('DOMContentLoaded', async () => {
     setupEventHandlers();
+    await preloadCsrfToken();
     const hasSession = await checkExistingSession();
     if (!hasSession) {
         await loadSetupStatus();

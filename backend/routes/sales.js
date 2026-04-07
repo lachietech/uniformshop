@@ -1,9 +1,28 @@
 import express from "express";
+import mongoose from "mongoose";
 import Sales from "../models/Sales.js";
 import { syncPosProductsFromSalesRecords } from "../services/posIntegration.js";
 import { compareCategoryThenSize, compareSizeValues } from "../utils/sizeOrder.js";
 
 const router = express.Router();
+const SAFE_TEXT_PATTERN = /^[A-Za-z0-9 .\-_/()+&]{1,64}$/;
+
+function validateObjectId(idValue) {
+  return mongoose.Types.ObjectId.isValid(String(idValue || ""));
+}
+
+function sanitizeTextInput(value, fieldName) {
+  if (typeof value !== "string") {
+    throw new Error(`${fieldName} must be a string`);
+  }
+
+  const trimmed = value.trim();
+  if (!SAFE_TEXT_PATTERN.test(trimmed)) {
+    throw new Error(`Invalid ${fieldName} format`);
+  }
+
+  return trimmed;
+}
 
 function parseMonthLabel(label) {
   const [monthText, yearText] = label.split("-");
@@ -576,9 +595,13 @@ router.get("/sales", async (req, res) => {
   try {
     const { category, size } = req.query;
     const filter = {};
-    
-    if (category) filter.category = category;
-    if (size) filter.size = size;
+
+    if (category !== undefined) {
+      filter.category = sanitizeTextInput(category, "category");
+    }
+    if (size !== undefined) {
+      filter.size = sanitizeTextInput(size, "size");
+    }
     
     const sales = await Sales.find(filter).lean();
     sales.sort((left, right) => compareCategoryThenSize(left, right));
@@ -600,6 +623,10 @@ router.get("/dashboard", async (req, res) => {
 // Get single sales record
 router.get("/sales/:id", async (req, res) => {
   try {
+    if (!validateObjectId(req.params.id)) {
+      return res.status(400).json({ error: "Invalid sales record id" });
+    }
+
     const sale = await Sales.findById(req.params.id);
     if (!sale) return res.status(404).json({ error: "Sales record not found" });
     res.json(sale);
@@ -612,9 +639,11 @@ router.get("/sales/:id", async (req, res) => {
 router.post("/sales", async (req, res) => {
   try {
     const { category, size, months, sales } = req.body;
+    const safeCategory = sanitizeTextInput(category, "category");
+    const safeSize = sanitizeTextInput(size, "size");
     
     // Check if record already exists
-    const existing = await Sales.findOne({ category, size });
+    const existing = await Sales.findOne({ category: safeCategory, size: safeSize });
     if (existing) {
       return res.status(400).json({ error: "Sales record for this category-size combination already exists" });
     }
@@ -624,7 +653,7 @@ router.post("/sales", async (req, res) => {
       return res.status(400).json({ error: "Months and sales arrays must have the same length" });
     }
     
-    const newSale = new Sales({ category, size, months, sales });
+    const newSale = new Sales({ category: safeCategory, size: safeSize, months, sales });
     await newSale.save();
     await syncPosProductsFromSalesRecords();
     res.status(201).json(newSale);
@@ -636,7 +665,19 @@ router.post("/sales", async (req, res) => {
 // Update sales record
 router.put("/sales/:id", async (req, res) => {
   try {
+    if (!validateObjectId(req.params.id)) {
+      return res.status(400).json({ error: "Invalid sales record id" });
+    }
+
     const { category, size, months, sales } = req.body;
+
+    const updatePayload = { months, sales };
+    if (category !== undefined) {
+      updatePayload.category = sanitizeTextInput(category, "category");
+    }
+    if (size !== undefined) {
+      updatePayload.size = sanitizeTextInput(size, "size");
+    }
     
     if (months && sales && months.length !== sales.length) {
       return res.status(400).json({ error: "Months and sales arrays must have the same length" });
@@ -644,7 +685,7 @@ router.put("/sales/:id", async (req, res) => {
     
     const updated = await Sales.findByIdAndUpdate(
       req.params.id,
-      { category, size, months, sales },
+      updatePayload,
       { new: true, runValidators: true }
     );
     if (!updated) return res.status(404).json({ error: "Sales record not found" });
@@ -658,6 +699,10 @@ router.put("/sales/:id", async (req, res) => {
 // Add a new month to a sales record
 router.post("/sales/:id/add-month", async (req, res) => {
   try {
+    if (!validateObjectId(req.params.id)) {
+      return res.status(400).json({ error: "Invalid sales record id" });
+    }
+
     const { month, value } = req.body;
     
     if (!month || value === undefined) {
@@ -684,6 +729,10 @@ router.post("/sales/:id/add-month", async (req, res) => {
 // Update specific month for a sales record
 router.patch("/sales/:id/month/:monthIndex", async (req, res) => {
   try {
+    if (!validateObjectId(req.params.id)) {
+      return res.status(400).json({ error: "Invalid sales record id" });
+    }
+
     const { value } = req.body;
     const monthIndex = parseInt(req.params.monthIndex);
     
@@ -705,6 +754,10 @@ router.patch("/sales/:id/month/:monthIndex", async (req, res) => {
 // Delete sales record
 router.delete("/sales/:id", async (req, res) => {
   try {
+    if (!validateObjectId(req.params.id)) {
+      return res.status(400).json({ error: "Invalid sales record id" });
+    }
+
     const deleted = await Sales.findByIdAndDelete(req.params.id);
     if (!deleted) return res.status(404).json({ error: "Sales record not found" });
     await syncPosProductsFromSalesRecords();
@@ -738,11 +791,12 @@ router.get("/metadata/categories", async (req, res) => {
 // Get sizes for a category
 router.get("/metadata/categories/:category/sizes", async (req, res) => {
   try {
-    const sizes = await Sales.find({ category: req.params.category }).select("size").lean();
+    const safeCategory = sanitizeTextInput(req.params.category, "category");
+    const sizes = await Sales.find({ category: safeCategory }).select("size").lean();
     const uniqueSizes = [...new Set(sizes.map((item) => String(item.size || "").trim()).filter(Boolean))];
     uniqueSizes.sort(compareSizeValues);
     res.json({ 
-      category: req.params.category,
+      category: safeCategory,
       sizes: uniqueSizes
     });
   } catch (error) {

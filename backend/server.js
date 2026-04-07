@@ -4,6 +4,7 @@ import dotenv from "dotenv";
 import path from "path";
 import fs from "fs";
 import cookieParser from "cookie-parser";
+import csrf from "csurf";
 import helmet from "helmet";
 import rateLimit from "express-rate-limit";
 import salesRoutes from "./routes/sales.js";
@@ -98,11 +99,44 @@ app.use(cookieParser());
 app.use(express.json({ limit: "200kb" }));
 app.use(express.static(path.join(import.meta.dirname , "../frontend")))
 
+const csrfProtection = csrf({
+  cookie: {
+    key: "uniform_shop_csrf_secret",
+    httpOnly: true,
+    sameSite: "strict",
+    secure: process.env.NODE_ENV === "production",
+    path: "/"
+  }
+});
+
+app.use(csrfProtection);
+app.use((req, res, next) => {
+  const csrfToken = req.csrfToken();
+  res.cookie("uniform_shop_csrf_token", csrfToken, {
+    httpOnly: false,
+    sameSite: "strict",
+    secure: process.env.NODE_ENV === "production",
+    path: "/"
+  });
+  res.setHeader("X-CSRF-Token", csrfToken);
+  next();
+});
+app.get("/api/csrf-token", (req, res) => {
+  res.json({ csrfToken: req.csrfToken() });
+});
+
 app.use(pageRoutes);
 app.use("/api/auth", authLimiter, authRoutes);
 app.use("/api", requireAuth, requirePasswordChangeResolved, salesRoutes);
 app.use("/api/pos/products", requireAuth, requirePasswordChangeResolved, posProductsRoutes);
 app.use("/api/pos/orders", requireAuth, requirePasswordChangeResolved, posOrdersRoutes);
+
+app.use((error, req, res, next) => {
+  if (error?.code === "EBADCSRFTOKEN") {
+    return res.status(403).json({ error: "Invalid CSRF token" });
+  }
+  return next(error);
+});
 
 app.listen(PORT, () => {
     console.log(`Server is running on port ${PORT}`);

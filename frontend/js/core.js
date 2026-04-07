@@ -205,8 +205,38 @@ app.setTableMessage = function setTableMessage(body, colspan, message, options =
     body.replaceChildren(row);
 };
 
+app.readCookie = function readCookie(cookieName) {
+    const cookieSource = document.cookie || '';
+    const cookies = cookieSource.split(';').map((entry) => entry.trim()).filter(Boolean);
+    const match = cookies.find((entry) => entry.startsWith(`${cookieName}=`));
+    if (!match) {
+        return '';
+    }
+    return decodeURIComponent(match.substring(cookieName.length + 1));
+};
+
+app.getCsrfToken = function getCsrfToken() {
+    return app.readCookie('uniform_shop_csrf_token');
+};
+
 window.fetch = async (resource, options) => {
-    const response = await app.nativeFetch(resource, options);
+    const requestOptions = options ? { ...options } : {};
+    const method = String(requestOptions.method || 'GET').toUpperCase();
+    const isMutatingMethod = !['GET', 'HEAD', 'OPTIONS', 'TRACE'].includes(method);
+    const isApiRequest = typeof resource === 'string' && resource.startsWith('/api/');
+
+    if (isMutatingMethod && isApiRequest) {
+        const headers = new Headers(requestOptions.headers || {});
+        if (!headers.has('x-csrf-token')) {
+            const csrfToken = app.getCsrfToken();
+            if (csrfToken) {
+                headers.set('x-csrf-token', csrfToken);
+            }
+        }
+        requestOptions.headers = headers;
+    }
+
+    const response = await app.nativeFetch(resource, requestOptions);
 
     if (response.status === 401 && typeof resource === 'string' && resource.startsWith('/api/') && !resource.startsWith('/api/auth/')) {
         app.handleUnauthorizedResponse?.();
