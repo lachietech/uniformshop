@@ -5,23 +5,24 @@ function setupAuthUI() {
     logoutBtn?.addEventListener('click', logout);
 }
 
-function restoreSession() {
-    let serverSessionUser = null;
-    const sessionUserDataElement = document.getElementById('sessionUserData');
-    if (sessionUserDataElement?.textContent) {
-        try {
-            serverSessionUser = JSON.parse(sessionUserDataElement.textContent);
-        } catch (error) {
-            serverSessionUser = null;
+async function restoreSession() {
+    try {
+        const response = await authApp.nativeFetch('/api/auth/me');
+        if (!response.ok) {
+            handleUnauthorizedResponse();
+            return;
         }
-    }
 
-    if (!serverSessionUser) {
+        const payload = await response.json();
+        if (!payload?.user) {
+            handleUnauthorizedResponse();
+            return;
+        }
+
+        enterAuthenticatedApp(payload.user);
+    } catch (error) {
         handleUnauthorizedResponse();
-        return;
     }
-
-    enterAuthenticatedApp(serverSessionUser);
 }
 
 async function logout() {

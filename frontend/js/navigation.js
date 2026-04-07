@@ -1,4 +1,15 @@
 const navigationApp = window.UniformShopApp;
+const routeToSectionMap = new Map(Object.entries(navigationApp.pageRoutes).map(([section, route]) => [route, section]));
+
+const pageTitles = {
+    dashboard: 'Dashboard',
+    view: 'Sales Records',
+    pos: 'Point of Sale',
+    receipts: 'Receipts',
+    stock: 'Stock Manager',
+    access: 'Access Management',
+    account: 'My Account'
+};
 
 function setupNavigation() {
     document.querySelectorAll('.nav-btn').forEach((button) => {
@@ -15,10 +26,13 @@ function setupNavigation() {
 
             const route = button.getAttribute('data-route') || navigationApp.pageRoutes[section];
             if (route) {
-                window.location.assign(route);
+                window.history.pushState({}, '', route);
+                loadCurrentPage();
             }
         });
     });
+
+    window.addEventListener('popstate', loadCurrentPage);
 
     setActiveSection(getCurrentPage());
 }
@@ -33,12 +47,14 @@ function setActiveSection(section) {
 }
 
 function getCurrentPage() {
-    return document.body?.dataset?.page || 'dashboard';
+    const pathname = window.location.pathname || navigationApp.pageRoutes.dashboard;
+    return routeToSectionMap.get(pathname) || 'dashboard';
 }
 
 function loadCurrentPage() {
     const currentPage = getCurrentPage();
     setActiveSection(currentPage);
+    document.title = `${pageTitles[currentPage] || 'Dashboard'} | Harris Fields State School Uniform Shop Manager`;
 
     if (currentPage === 'dashboard') {
         navigationApp.loadDashboard?.();

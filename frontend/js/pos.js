@@ -19,6 +19,8 @@ function setupPOS() {
     const keypadClearBtn = document.getElementById('posKeyClearBtn');
     const setQtyBtn = document.getElementById('posSetQtyBtn');
     const addQtyBtn = document.getElementById('posAddQtyBtn');
+    const productsEl = document.getElementById('posProducts');
+    const cartBody = document.getElementById('posCartBody');
 
     posApp.state.posSearchQuery = '';
     posApp.state.posSelectedGroup = 'Shirts';
@@ -38,6 +40,8 @@ function setupPOS() {
         posApp.state.posSearchQuery = String(event.target.value || '').trim().toLowerCase();
         renderPOSProducts();
     });
+    productsEl?.addEventListener('click', handlePOSProductClick);
+    cartBody?.addEventListener('click', handlePOSCartClick);
 
     keypadButtons.forEach((button) => {
         button.addEventListener('click', () => appendKeypadValue(button.getAttribute('data-key') || ''));
@@ -172,18 +176,124 @@ function renderPOSProducts() {
         return;
     }
 
-    productsEl.innerHTML = filtered.map((product) => `
-        <button class="pos-product-btn" data-id="${product._id}">
-            <span class="pos-product-name">${posApp.escapeHtml(product.name)}</span>
-            <span class="pos-product-meta">${posApp.escapeHtml(product.category || '')} ${product.size ? `| ${posApp.escapeHtml(product.size)}` : ''}</span>
-            <span class="pos-product-meta">On Hand: ${Number(product.stockOnHand || 0)}</span>
-            <span class="pos-product-meta">${posApp.formatCurrency(product.price)}</span>
-        </button>
-    `).join('');
+    posApp.replaceChildren(productsEl, filtered.map((product) => {
+        return posApp.el('button', {
+            className: 'pos-product-btn',
+            type: 'button',
+            dataset: { id: product._id }
+        }, [
+            posApp.el('span', { className: 'pos-product-name', text: product.name || '' }),
+            posApp.el('span', {
+                className: 'pos-product-meta',
+                text: `${product.category || ''}${product.size ? ` | ${product.size}` : ''}`.trim()
+            }),
+            posApp.el('span', { className: 'pos-product-meta', text: `On Hand: ${Number(product.stockOnHand || 0)}` }),
+            posApp.el('span', { className: 'pos-product-meta', text: posApp.formatCurrency(product.price) })
+        ]);
+    }));
+}
 
-    productsEl.querySelectorAll('.pos-product-btn').forEach((button) => {
-        button.addEventListener('click', () => addProductToPOSCart(button.getAttribute('data-id')));
+function createPOSCartRow(item, index) {
+    const row = posApp.el('tr', {
+        className: index === posApp.state.posSelectedCartIndex ? 'pos-cart-row-selected' : '',
+        attrs: { 'data-pos-select': index }
     });
+
+    const subtotal = item.qty * item.price;
+    row.appendChild(posApp.el('td', { text: item.name || '' }));
+
+    const quantityCell = posApp.el('td');
+    const decButton = posApp.el('button', {
+        className: 'btn btn-secondary btn-small',
+        type: 'button',
+        attrs: { 'data-pos-dec': index },
+        text: '-'
+    });
+    const incButton = posApp.el('button', {
+        className: 'btn btn-secondary btn-small',
+        type: 'button',
+        attrs: { 'data-pos-inc': index },
+        text: '+'
+    });
+    quantityCell.append(decButton, document.createTextNode(` ${item.qty} `), incButton);
+    row.appendChild(quantityCell);
+
+    row.appendChild(posApp.el('td', { text: posApp.formatCurrency(item.price) }));
+    row.appendChild(posApp.el('td', { text: posApp.formatCurrency(subtotal) }));
+
+    const actionsCell = posApp.el('td');
+    const removeButton = posApp.el('button', {
+        className: 'btn btn-danger btn-small',
+        type: 'button',
+        attrs: { 'data-pos-del': index },
+        text: 'Remove'
+    });
+    actionsCell.appendChild(removeButton);
+    row.appendChild(actionsCell);
+    return row;
+}
+
+function handlePOSProductClick(event) {
+    const button = event.target.closest('[data-id]');
+    if (!button) {
+        return;
+    }
+    addProductToPOSCart(button.dataset.id);
+}
+
+function handlePOSCartClick(event) {
+    const incButton = event.target.closest('[data-pos-inc]');
+    if (incButton) {
+        const index = Number(incButton.getAttribute('data-pos-inc'));
+        if (!Number.isNaN(index) && posApp.state.posCart[index]) {
+            const targetItem = posApp.state.posCart[index];
+            const stockOnHand = getProductStockOnHand(targetItem.productId);
+            if (targetItem.qty + 1 > stockOnHand) {
+                alert(`Not enough stock on hand for ${targetItem.name}.`);
+                return;
+            }
+            targetItem.qty += 1;
+            posApp.state.posSelectedCartIndex = index;
+            renderPOSCart();
+        }
+        return;
+    }
+
+    const decButton = event.target.closest('[data-pos-dec]');
+    if (decButton) {
+        const index = Number(decButton.getAttribute('data-pos-dec'));
+        if (!Number.isNaN(index) && posApp.state.posCart[index]) {
+            posApp.state.posCart[index].qty -= 1;
+            if (posApp.state.posCart[index].qty <= 0) {
+                posApp.state.posCart.splice(index, 1);
+            }
+            posApp.state.posSelectedCartIndex = posApp.state.posCart.length ? Math.max(0, index - 1) : null;
+            renderPOSCart();
+        }
+        return;
+    }
+
+    const removeButton = event.target.closest('[data-pos-del]');
+    if (removeButton) {
+        const index = Number(removeButton.getAttribute('data-pos-del'));
+        if (!Number.isNaN(index)) {
+            posApp.state.posCart.splice(index, 1);
+            posApp.state.posSelectedCartIndex = posApp.state.posCart.length ? Math.max(0, index - 1) : null;
+            renderPOSCart();
+        }
+        return;
+    }
+
+    const row = event.target.closest('[data-pos-select]');
+    if (!row) {
+        return;
+    }
+
+    const index = Number(row.getAttribute('data-pos-select'));
+    if (!Number.isNaN(index)) {
+        posApp.state.posSelectedCartIndex = index;
+        renderPOSCart();
+    }
 }
 
 function addProductToPOSCart(productId) {
@@ -249,77 +359,7 @@ function renderPOSCart() {
             : 'No item selected';
     }
 
-    body.innerHTML = posApp.state.posCart.map((item, index) => {
-        const subtotal = item.qty * item.price;
-        return `
-            <tr class="${index === posApp.state.posSelectedCartIndex ? 'pos-cart-row-selected' : ''}" data-pos-select="${index}">
-                <td>${posApp.escapeHtml(item.name)}</td>
-                <td>
-                    <button class="btn btn-secondary btn-small" data-pos-dec="${index}">-</button>
-                    ${item.qty}
-                    <button class="btn btn-secondary btn-small" data-pos-inc="${index}">+</button>
-                </td>
-                <td>${posApp.formatCurrency(item.price)}</td>
-                <td>${posApp.formatCurrency(subtotal)}</td>
-                <td><button class="btn btn-danger btn-small" data-pos-del="${index}">Remove</button></td>
-            </tr>
-        `;
-    }).join('');
-
-    body.querySelectorAll('[data-pos-select]').forEach((row) => {
-        row.addEventListener('click', () => {
-            const index = Number(row.getAttribute('data-pos-select'));
-            if (!Number.isNaN(index)) {
-                posApp.state.posSelectedCartIndex = index;
-                renderPOSCart();
-            }
-        });
-    });
-
-    body.querySelectorAll('[data-pos-inc]').forEach((button) => {
-        button.addEventListener('click', () => {
-            const index = Number(button.getAttribute('data-pos-inc'));
-            if (!Number.isNaN(index) && posApp.state.posCart[index]) {
-                const targetItem = posApp.state.posCart[index];
-                const stockOnHand = getProductStockOnHand(targetItem.productId);
-                if (targetItem.qty + 1 > stockOnHand) {
-                    alert(`Not enough stock on hand for ${targetItem.name}.`);
-                    return;
-                }
-                targetItem.qty += 1;
-                posApp.state.posSelectedCartIndex = index;
-                renderPOSCart();
-            }
-        });
-    });
-
-    body.querySelectorAll('[data-pos-inc], [data-pos-dec], [data-pos-del]').forEach((button) => {
-        button.addEventListener('click', (event) => {
-            event.stopPropagation();
-        });
-    });
-
-    body.querySelectorAll('[data-pos-dec]').forEach((button) => {
-        button.addEventListener('click', () => {
-            const index = Number(button.getAttribute('data-pos-dec'));
-            if (!Number.isNaN(index) && posApp.state.posCart[index]) {
-                posApp.state.posCart[index].qty -= 1;
-                if (posApp.state.posCart[index].qty <= 0) posApp.state.posCart.splice(index, 1);
-                posApp.state.posSelectedCartIndex = posApp.state.posCart.length ? Math.max(0, index - 1) : null;
-                renderPOSCart();
-            }
-        });
-    });
-    body.querySelectorAll('[data-pos-del]').forEach((button) => {
-        button.addEventListener('click', () => {
-            const index = Number(button.getAttribute('data-pos-del'));
-            if (!Number.isNaN(index)) {
-                posApp.state.posCart.splice(index, 1);
-                posApp.state.posSelectedCartIndex = posApp.state.posCart.length ? Math.max(0, index - 1) : null;
-                renderPOSCart();
-            }
-        });
-    });
+    posApp.replaceChildren(body, posApp.state.posCart.map((item, index) => createPOSCartRow(item, index)));
 
     totalEl.textContent = posApp.formatCurrency(getPOSCartTotal());
 }
@@ -451,18 +491,38 @@ async function loadPOSOrders(date) {
             return;
         }
 
-        body.innerHTML = orders.map((order) => `
-            <tr>
-                <td>${posApp.escapeHtml(order.orderNumber)}</td>
-                <td>${new Date(order.createdAt).toLocaleString()}</td>
-                <td>${order.items.reduce((sum, item) => sum + Number(item.qty || 0), 0)}</td>
-                <td>${posApp.formatCurrency(order.total)}</td>
-                <td>${posApp.escapeHtml((order.paymentMethod || '').toUpperCase())}</td>
-                <td>${posApp.escapeHtml(order.receiptStatus || '-')}</td>
-            </tr>
-        `).join('');
+        body.innerHTML = '';
+        orders.forEach((order) => {
+            const row = document.createElement('tr');
+
+            const orderNumberCell = document.createElement('td');
+            orderNumberCell.textContent = order.orderNumber || '';
+            row.appendChild(orderNumberCell);
+
+            const dateCell = document.createElement('td');
+            dateCell.textContent = new Date(order.createdAt).toLocaleString();
+            row.appendChild(dateCell);
+
+            const itemsCell = document.createElement('td');
+            itemsCell.textContent = String(order.items.reduce((sum, item) => sum + Number(item.qty || 0), 0));
+            row.appendChild(itemsCell);
+
+            const totalCell = document.createElement('td');
+            totalCell.textContent = posApp.formatCurrency(order.total);
+            row.appendChild(totalCell);
+
+            const paymentCell = document.createElement('td');
+            paymentCell.textContent = String(order.paymentMethod || '').toUpperCase();
+            row.appendChild(paymentCell);
+
+            const statusCell = document.createElement('td');
+            statusCell.textContent = order.receiptStatus || '-';
+            row.appendChild(statusCell);
+
+            body.appendChild(row);
+        });
     } catch (error) {
-        body.innerHTML = `<tr><td colspan="6" style="color: #d9534f;">${error.message}</td></tr>`;
+        body.innerHTML = `<tr><td colspan="6" style="color: #d9534f;">${posApp.escapeHtml(error.message)}</td></tr>`;
     }
 }
 
@@ -481,40 +541,58 @@ async function loadPOSProductsAdmin() {
             return;
         }
 
-        body.innerHTML = products.map((product) => `
-            <tr>
-                <td>${posApp.escapeHtml(product.name)}</td>
-                <td>${posApp.escapeHtml(product.category || '')}</td>
-                <td>${posApp.escapeHtml(product.size || '')}</td>
-                <td>${posApp.escapeHtml(product.sku || '')}</td>
-                <td>${posApp.formatCurrency(product.price)}</td>
-                <td>${Number(product.stockOnHand || 0)}</td>
-                <td>${Number(product.stockInWarehouse || 0)}</td>
-                <td>
-                    <span class="pos-status-pill ${product.active ? 'pos-status-active' : 'pos-status-inactive'}">
-                        ${product.active ? 'Active' : 'Inactive'}
-                    </span>
-                </td>
-                <td>
-                    <button class="btn btn-secondary btn-small" data-pos-edit="${product._id}">Edit</button>
-                    <button class="btn btn-danger btn-small" data-pos-toggle="${product._id}">
-                        ${product.active ? 'Deactivate' : 'Activate'}
-                    </button>
-                </td>
-            </tr>
-        `).join('');
+        body.innerHTML = '';
+        products.forEach((product) => {
+            const row = document.createElement('tr');
 
-        body.querySelectorAll('[data-pos-edit]').forEach((button) => {
-            button.addEventListener('click', () => {
-                const product = products.find((item) => item._id === button.getAttribute('data-pos-edit'));
-                if (product) openPOSProductModal(product);
-            });
-        });
+            const nameCell = document.createElement('td');
+            nameCell.textContent = product.name || '';
+            row.appendChild(nameCell);
 
-        body.querySelectorAll('[data-pos-toggle]').forEach((button) => {
-            button.addEventListener('click', async () => {
-                const product = products.find((item) => item._id === button.getAttribute('data-pos-toggle'));
-                if (!product) return;
+            const categoryCell = document.createElement('td');
+            categoryCell.textContent = product.category || '';
+            row.appendChild(categoryCell);
+
+            const sizeCell = document.createElement('td');
+            sizeCell.textContent = product.size || '';
+            row.appendChild(sizeCell);
+
+            const skuCell = document.createElement('td');
+            skuCell.textContent = product.sku || '';
+            row.appendChild(skuCell);
+
+            const priceCell = document.createElement('td');
+            priceCell.textContent = posApp.formatCurrency(product.price);
+            row.appendChild(priceCell);
+
+            const onHandCell = document.createElement('td');
+            onHandCell.textContent = String(Number(product.stockOnHand || 0));
+            row.appendChild(onHandCell);
+
+            const warehouseCell = document.createElement('td');
+            warehouseCell.textContent = String(Number(product.stockInWarehouse || 0));
+            row.appendChild(warehouseCell);
+
+            const statusCell = document.createElement('td');
+            const statusPill = document.createElement('span');
+            statusPill.className = `pos-status-pill ${product.active ? 'pos-status-active' : 'pos-status-inactive'}`;
+            statusPill.textContent = product.active ? 'Active' : 'Inactive';
+            statusCell.appendChild(statusPill);
+            row.appendChild(statusCell);
+
+            const actionsCell = document.createElement('td');
+            const editButton = document.createElement('button');
+            editButton.className = 'btn btn-secondary btn-small';
+            editButton.type = 'button';
+            editButton.textContent = 'Edit';
+            editButton.addEventListener('click', () => openPOSProductModal(product));
+            actionsCell.appendChild(editButton);
+
+            const toggleButton = document.createElement('button');
+            toggleButton.className = 'btn btn-danger btn-small';
+            toggleButton.type = 'button';
+            toggleButton.textContent = product.active ? 'Deactivate' : 'Activate';
+            toggleButton.addEventListener('click', async () => {
                 await fetch(`/api/pos/products/${product._id}`, {
                     method: 'PUT',
                     headers: { 'Content-Type': 'application/json' },
@@ -532,9 +610,13 @@ async function loadPOSProductsAdmin() {
                 await loadPOSProductsAdmin();
                 await loadPOSProducts();
             });
+            actionsCell.appendChild(toggleButton);
+
+            row.appendChild(actionsCell);
+            body.appendChild(row);
         });
     } catch (error) {
-        body.innerHTML = `<tr><td colspan="9" style="color: #d9534f;">${error.message}</td></tr>`;
+        body.innerHTML = `<tr><td colspan="9" style="color: #d9534f;">${posApp.escapeHtml(error.message)}</td></tr>`;
     }
 }
 

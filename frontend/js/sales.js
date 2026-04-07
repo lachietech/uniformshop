@@ -1,11 +1,11 @@
 const salesApp = window.UniformShopApp;
 
 async function loadSalesData() {
-    const tableContainer = document.getElementById('salesTable');
-    if (!tableContainer) {
+    const tableBody = document.getElementById('salesTableBody');
+    if (!tableBody) {
         return;
     }
-    tableContainer.innerHTML = '<p class="loading">Loading data...</p>';
+    salesApp.setTableMessage(tableBody, 9, 'Loading data...');
 
     try {
         const category = document.getElementById('categoryFilter')?.value || '';
@@ -28,66 +28,66 @@ async function loadSalesData() {
             throw new Error('Invalid sales data format');
         }
 
+        const lastFiveYears = getLastFiveYears();
+        updateSalesYearHeaders(lastFiveYears);
+
         if (data.length === 0) {
-            tableContainer.innerHTML = '<p class="loading">No data found.</p>';
+            salesApp.setTableMessage(tableBody, 9, 'No data found.');
             return;
         }
 
-        const grouped = data.reduce((acc, item) => {
-            if (!acc[item.category]) acc[item.category] = [];
-            acc[item.category].push(item);
-            return acc;
-        }, {});
-        const lastFiveYears = getLastFiveYears();
-
-        let html = '';
-        for (const [category, items] of Object.entries(grouped)) {
-            items.sort((left, right) => salesApp.compareSizes(left.size, right.size));
-            html += `<h3 style="margin-top: 30px; margin-bottom: 15px; color: #333;">${category}</h3>`;
-            html += '<table>';
-            html += '<thead><tr><th>Size</th><th>Months</th><th>Last 5 Years</th><th>Actions</th></tr></thead>';
-            html += '<tbody>';
-
-            items.forEach((item) => {
-                const monthCount = Array.isArray(item.months) ? item.months.length : 0;
-                const monthsPreview = monthCount ? item.months.slice(-3).join(', ') : 'none';
-                const yearlyBreakdown = getYearlySalesBreakdown(item, lastFiveYears);
-                const breakdownHtml = yearlyBreakdown
-                    .map((entry) => `${entry.year}: <strong>${entry.total}</strong>`)
-                    .join(' | ');
-
-                html += `<tr>
-                    <td><strong>${item.size}</strong></td>
-                    <td>${monthCount} months (latest: ${monthsPreview})</td>
-                    <td>${breakdownHtml}</td>
-                    <td>
-                        <button class="btn btn-secondary btn-small" type="button" data-edit-id="${item._id}" data-edit-category="${item.category}" data-edit-size="${item.size}">Edit</button>
-                        <button class="btn btn-danger btn-small" type="button" data-delete-id="${item._id}">Delete</button>
-                    </td>
-                </tr>`;
-            });
-
-            html += '</tbody></table>';
-        }
-
-        tableContainer.innerHTML = html;
-        tableContainer.querySelectorAll('[data-edit-id]').forEach((button) => {
-            button.addEventListener('click', () => {
-                openEditModal(
-                    button.getAttribute('data-edit-id'),
-                    button.getAttribute('data-edit-category'),
-                    button.getAttribute('data-edit-size')
-                );
-            });
+        data.sort((left, right) => {
+            const categoryCompare = String(left.category || '').localeCompare(String(right.category || ''));
+            if (categoryCompare !== 0) {
+                return categoryCompare;
+            }
+            return salesApp.compareSizes(left.size, right.size);
         });
-        tableContainer.querySelectorAll('[data-delete-id]').forEach((button) => {
-            button.addEventListener('click', () => {
-                deleteSale(button.getAttribute('data-delete-id'));
+
+        salesApp.replaceChildren(tableBody, data.map((item) => {
+            const row = document.createElement('tr');
+            const monthCount = Array.isArray(item.months) ? item.months.length : 0;
+            const monthsPreview = monthCount ? item.months.slice(-3).join(', ') : 'none';
+            const yearlyBreakdown = getYearlySalesBreakdown(item, lastFiveYears);
+
+            row.appendChild(makeSalesCell(item.category || ''));
+            row.appendChild(makeSalesCell(item.size || '', { strong: true }));
+            row.appendChild(makeSalesCell(`${monthCount} months (latest: ${monthsPreview})`));
+
+            yearlyBreakdown.forEach((entry) => {
+                row.appendChild(makeSalesCell(String(entry.total), { strong: true }));
             });
-        });
+
+            const actionsCell = document.createElement('td');
+            const editButton = salesApp.createButton({
+                className: 'btn btn-secondary btn-small',
+                text: 'Edit',
+                dataset: {
+                    editId: item._id,
+                    editCategory: item.category || '',
+                    editSize: item.size || ''
+                }
+            });
+            actionsCell.appendChild(editButton);
+            row.appendChild(actionsCell);
+            return row;
+        }));
     } catch (error) {
-        tableContainer.innerHTML = `<p class="loading" style="color: #d9534f;">Error loading data: ${error.message}</p>`;
+        salesApp.setTableMessage(tableBody, 9, `Error loading data: ${error.message}`, { color: '#d9534f', className: '' });
     }
+}
+
+function updateSalesYearHeaders(years) {
+    years.forEach((year, index) => {
+        const cell = document.getElementById(`salesYearCol${index + 1}`);
+        if (cell) {
+            cell.textContent = String(year);
+        }
+    });
+}
+
+function makeSalesCell(text, options = {}) {
+    return salesApp.createTableCell(text, options);
 }
 
 function getLastFiveYears() {
@@ -139,6 +139,7 @@ function setupFilterButtons() {
     const categoryFilter = document.getElementById('categoryFilter');
     const sizeFilter = document.getElementById('sizeFilter');
     const filterBtn = document.getElementById('filterBtn');
+    const tableBody = document.getElementById('salesTableBody');
 
     if (categoryFilter && sizeFilter && filterBtn) {
         categoryFilter.addEventListener('change', async () => {
@@ -164,6 +165,14 @@ function setupFilterButtons() {
 
         filterBtn.addEventListener('click', loadSalesData);
     }
+
+    tableBody?.addEventListener('click', (event) => {
+        const button = event.target.closest('[data-edit-id]');
+        if (!button) {
+            return;
+        }
+        openEditModal(button.dataset.editId, button.dataset.editCategory, button.dataset.editSize);
+    });
 }
 
 async function loadAllProductsForMonth() {
@@ -205,25 +214,47 @@ async function loadAllProductsForMonth() {
             return acc;
         }, {});
 
-        let html = '';
+        container.innerHTML = '';
         for (const [category, items] of Object.entries(grouped)) {
             items.sort((left, right) => salesApp.compareSizes(left.size, right.size));
-            html += `<div style="border-top: 1px solid #ddd; margin-top: 12px; padding-top: 12px;">
-                <strong style="color: #333; font-size: 0.95em;">${category}</strong>`;
+            const groupWrap = document.createElement('div');
+            groupWrap.style.borderTop = '1px solid #ddd';
+            groupWrap.style.marginTop = '12px';
+            groupWrap.style.paddingTop = '12px';
+
+            const groupTitle = document.createElement('strong');
+            groupTitle.style.color = '#333';
+            groupTitle.style.fontSize = '0.95em';
+            groupTitle.textContent = category;
+            groupWrap.appendChild(groupTitle);
 
             items.forEach((item) => {
                 const recordId = item._id;
                 const inputId = `month_${recordId}`;
-                html += `<div class="month-input" style="margin-bottom: 8px;">
-                    <label style="margin-bottom: 2px;">${item.size}</label>
-                    <input type="number" id="${inputId}" data-record-id="${recordId}" placeholder="0" value="0" min="-999">
-                </div>`;
+
+                const monthInput = document.createElement('div');
+                monthInput.className = 'month-input';
+                monthInput.style.marginBottom = '8px';
+
+                const label = document.createElement('label');
+                label.style.marginBottom = '2px';
+                label.textContent = item.size;
+
+                const input = document.createElement('input');
+                input.type = 'number';
+                input.id = inputId;
+                input.setAttribute('data-record-id', recordId);
+                input.placeholder = '0';
+                input.value = '0';
+                input.min = '-999';
+
+                monthInput.appendChild(label);
+                monthInput.appendChild(input);
+                groupWrap.appendChild(monthInput);
             });
 
-            html += '</div>';
+            container.appendChild(groupWrap);
         }
-
-        container.innerHTML = html;
     } catch (error) {
         container.innerHTML = `<p class="loading" style="color: #d9534f;">Error loading products: ${error.message}</p>`;
     }
@@ -388,17 +419,14 @@ async function openEditModal(id, category, size) {
         }
 
         editTitle.textContent = `${category} - ${size}`;
-        editMonths.innerHTML = '';
-
-        data.months.forEach((month, index) => {
-            const div = document.createElement('div');
-            div.className = 'month-input';
-            div.innerHTML = `
-                <label>${month}</label>
-                <input type="number" value="${data.sales[index]}" min="-999" data-month="${index}">
-            `;
-            editMonths.appendChild(div);
-        });
+        salesApp.replaceChildren(editMonths, data.months.map((month, index) => salesApp.el('div', { className: 'month-input' }, [
+            salesApp.el('label', { text: month }),
+            salesApp.el('input', {
+                type: 'number',
+                value: String(data.sales[index] ?? 0),
+                attrs: { min: '-999', 'data-month': index }
+            })
+        ])));
 
         editModal.classList.add('show');
     } catch (error) {
@@ -437,58 +465,15 @@ async function saveEditedRecord() {
     }
 }
 
-async function deleteCurrentRecord() {
-    if (!confirm('Are you sure you want to delete this record?')) return;
-
-    try {
-        const response = await fetch(`/api/sales/${salesApp.state.currentEditId}`, {
-            method: 'DELETE'
-        });
-
-        if (!response.ok) {
-            throw new Error('Delete failed');
-        }
-
-        alert('Record deleted successfully');
-        closeModal();
-        loadSalesData();
-        salesApp.loadDashboard?.();
-    } catch (error) {
-        alert(`Error: ${error.message}`);
-    }
-}
-
-async function deleteSale(id) {
-    if (!confirm('Are you sure you want to delete this record?')) return;
-
-    try {
-        const response = await fetch(`/api/sales/${id}`, {
-            method: 'DELETE'
-        });
-
-        if (!response.ok) {
-            throw new Error('Delete failed');
-        }
-
-        alert('Record deleted successfully');
-        loadSalesData();
-        salesApp.loadDashboard?.();
-    } catch (error) {
-        alert(`Error: ${error.message}`);
-    }
-}
-
 function setupModal() {
     const modal = document.getElementById('editModal');
     const closeBtn = document.querySelector('#editModal .close');
     const cancelBtn = document.getElementById('closeEditBtn');
     const saveBtn = document.getElementById('saveEditBtn');
-    const deleteBtn = document.getElementById('deleteBtn');
 
     closeBtn?.addEventListener('click', closeModal);
     cancelBtn?.addEventListener('click', closeModal);
     saveBtn?.addEventListener('click', saveEditedRecord);
-    deleteBtn?.addEventListener('click', deleteCurrentRecord);
 
     if (modal) {
         window.addEventListener('click', (event) => {

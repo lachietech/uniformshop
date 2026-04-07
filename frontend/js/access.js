@@ -7,6 +7,7 @@ function setupAccessManagement() {
     document.getElementById('saveUserBtn')?.addEventListener('click', saveManagedUser);
     document.getElementById('cancelUserBtn')?.addEventListener('click', closeUserModal);
     document.getElementById('userModalClose')?.addEventListener('click', closeUserModal);
+    document.getElementById('usersTableBody')?.addEventListener('click', handleManagedUserClick);
 
     const modal = document.getElementById('userModal');
     if (modal) {
@@ -15,6 +16,19 @@ function setupAccessManagement() {
                 closeUserModal();
             }
         });
+    }
+}
+
+function handleManagedUserClick(event) {
+    const button = event.target.closest('[data-user-id]');
+    if (!button) {
+        return;
+    }
+
+    const userId = button.getAttribute('data-user-id');
+    const user = accessApp.state.lastLoadedUsers?.find((entry) => entry.id === userId);
+    if (user) {
+        openUserModal(user);
     }
 }
 
@@ -103,7 +117,7 @@ async function loadUsers() {
         return;
     }
 
-    body.innerHTML = '<tr><td colspan="5" class="loading">Loading users...</td></tr>';
+    accessApp.setTableMessage(body, 5, 'Loading users...');
     try {
         const response = await fetch('/api/auth/users');
         const users = await response.json();
@@ -111,36 +125,42 @@ async function loadUsers() {
             throw new Error(users.error || 'Failed to load users');
         }
 
+        accessApp.state.lastLoadedUsers = users;
+
         if (!users.length) {
-            body.innerHTML = '<tr><td colspan="5" class="loading">No users found.</td></tr>';
+            accessApp.setTableMessage(body, 5, 'No users found.');
             return;
         }
 
-        body.innerHTML = users.map((user) => `
-            <tr>
-                <td>${accessApp.escapeHtml(user.username)}</td>
-                <td>${user.role === 'admin' ? 'Administrator' : 'Staff'}</td>
-                <td>
-                    <span class="pos-status-pill ${getUserStatusClass(user)}">
-                        ${getUserStatusLabel(user)}
-                    </span>
-                </td>
-                <td>${user.lastLoginAt ? new Date(user.lastLoginAt).toLocaleString() : 'Never'}</td>
-                <td><button class="btn btn-secondary btn-small" data-user-id="${user.id}">Manage</button></td>
-            </tr>
-        `).join('');
-
-        body.querySelectorAll('[data-user-id]').forEach((button) => {
-            button.addEventListener('click', () => {
-                const user = users.find((item) => item.id === button.getAttribute('data-user-id'));
-                if (user) {
-                    openUserModal(user);
-                }
-            });
-        });
+        accessApp.replaceChildren(body, users.map((user) => createUserRow(user)));
     } catch (error) {
-        body.innerHTML = `<tr><td colspan="5" style="color: #d9534f;">${error.message}</td></tr>`;
+        accessApp.setTableMessage(body, 5, error.message, { color: '#d9534f', className: '' });
     }
+}
+
+function createUserRow(user) {
+    const row = document.createElement('tr');
+    row.append(
+        accessApp.createTableCell(user.username),
+        accessApp.createTableCell(user.role === 'admin' ? 'Administrator' : 'Staff')
+    );
+
+    const statusCell = document.createElement('td');
+    statusCell.appendChild(accessApp.el('span', {
+        className: `pos-status-pill ${getUserStatusClass(user)}`,
+        text: getUserStatusLabel(user)
+    }));
+    row.appendChild(statusCell);
+    row.appendChild(accessApp.createTableCell(user.lastLoginAt ? new Date(user.lastLoginAt).toLocaleString() : 'Never'));
+
+    const actionsCell = document.createElement('td');
+    actionsCell.appendChild(accessApp.createButton({
+        className: 'btn btn-secondary btn-small',
+        text: 'Manage',
+        attrs: { 'data-user-id': user.id }
+    }));
+    row.appendChild(actionsCell);
+    return row;
 }
 
 async function createUser(event) {
@@ -267,7 +287,7 @@ async function loadAuditLogs() {
         return;
     }
 
-    body.innerHTML = '<tr><td colspan="5" class="loading">Loading activity...</td></tr>';
+    accessApp.setTableMessage(body, 5, 'Loading activity...');
     try {
         const response = await fetch('/api/auth/audit-logs');
         const logs = await response.json();
@@ -276,21 +296,23 @@ async function loadAuditLogs() {
         }
 
         if (!logs.length) {
-            body.innerHTML = '<tr><td colspan="5" class="loading">No audit activity recorded yet.</td></tr>';
+            accessApp.setTableMessage(body, 5, 'No audit activity recorded yet.');
             return;
         }
 
-        body.innerHTML = logs.map((entry) => `
-            <tr>
-                <td>${new Date(entry.createdAt).toLocaleString()}</td>
-                <td>${accessApp.escapeHtml(entry.action)}</td>
-                <td>${accessApp.escapeHtml(entry.actorUsername || 'system')}</td>
-                <td>${accessApp.escapeHtml(entry.targetUsername || '-')}</td>
-                <td>${accessApp.escapeHtml(formatAuditDetails(entry.details))}</td>
-            </tr>
-        `).join('');
+        accessApp.replaceChildren(body, logs.map((entry) => {
+            const row = document.createElement('tr');
+            row.append(
+                accessApp.createTableCell(new Date(entry.createdAt).toLocaleString()),
+                accessApp.createTableCell(entry.action),
+                accessApp.createTableCell(entry.actorUsername || 'system'),
+                accessApp.createTableCell(entry.targetUsername || '-'),
+                accessApp.createTableCell(formatAuditDetails(entry.details))
+            );
+            return row;
+        }));
     } catch (error) {
-        body.innerHTML = `<tr><td colspan="5" style="color: #d9534f;">${error.message}</td></tr>`;
+        accessApp.setTableMessage(body, 5, error.message, { color: '#d9534f', className: '' });
     }
 }
 

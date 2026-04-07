@@ -4,11 +4,19 @@ function setupReceipts() {
     const refreshBtn = document.getElementById('receiptRefreshBtn');
     const closeBtn = document.getElementById('receiptPreviewClose');
     const modal = document.getElementById('receiptPreviewModal');
+    const historyBody = document.getElementById('receiptHistoryBody');
 
     refreshBtn?.addEventListener('click', () => {
         loadReceiptsSection();
     });
     closeBtn?.addEventListener('click', closeReceiptPreview);
+    historyBody?.addEventListener('click', (event) => {
+        const button = event.target.closest('[data-receipt-view]');
+        if (!button) {
+            return;
+        }
+        openReceiptPreview(button.getAttribute('data-receipt-view'));
+    });
 
     if (modal) {
         window.addEventListener('click', (event) => {
@@ -28,7 +36,7 @@ async function loadReceiptsSection() {
     const orderDateFilter = document.getElementById('posOrderDate')?.value || '';
     receiptsApp.loadPOSOrders?.(orderDateFilter);
 
-    body.innerHTML = '<tr><td colspan="6" class="loading">Loading receipts...</td></tr>';
+    receiptsApp.setTableMessage(body, 6, 'Loading receipts...');
 
     try {
         const response = await fetch('/api/pos/orders/receipts?limit=250');
@@ -39,32 +47,43 @@ async function loadReceiptsSection() {
         }
 
         if (!receipts.length) {
-            body.innerHTML = '<tr><td colspan="6" class="loading">No receipts found.</td></tr>';
+            receiptsApp.setTableMessage(body, 6, 'No receipts found.');
             return;
         }
 
-        body.innerHTML = receipts.map((receipt) => {
+        receiptsApp.replaceChildren(body, receipts.map((receipt) => {
+            const row = document.createElement('tr');
             const statusClass = receipt.receiptStatus === 'saved' || receipt.receiptStatus === 'sent'
                 ? 'pos-status-active'
                 : 'pos-status-warning';
 
-            return `
-                <tr>
-                    <td>${receiptsApp.escapeHtml(receipt.orderNumber)}</td>
-                    <td>${new Date(receipt.createdAt).toLocaleString()}</td>
-                    <td>${receiptsApp.escapeHtml((receipt.paymentMethod || '').toUpperCase())}</td>
-                    <td>${receiptsApp.formatCurrency(receipt.total)}</td>
-                    <td><span class="pos-status-pill ${statusClass}">${receiptsApp.escapeHtml(receipt.receiptStatus || '-')}</span></td>
-                    <td><button class="btn btn-secondary btn-small" data-receipt-view="${receipt._id}">View</button></td>
-                </tr>
-            `;
-        }).join('');
+            row.append(
+                receiptsApp.createTableCell(receipt.orderNumber || ''),
+                receiptsApp.createTableCell(new Date(receipt.createdAt).toLocaleString()),
+                receiptsApp.createTableCell(String(receipt.paymentMethod || '').toUpperCase()),
+                receiptsApp.createTableCell(receiptsApp.formatCurrency(receipt.total))
+            );
 
-        body.querySelectorAll('[data-receipt-view]').forEach((button) => {
-            button.addEventListener('click', () => openReceiptPreview(button.getAttribute('data-receipt-view')));
-        });
+            const statusCell = document.createElement('td');
+            const statusPill = document.createElement('span');
+            statusPill.className = `pos-status-pill ${statusClass}`;
+            statusPill.textContent = receipt.receiptStatus || '-';
+            statusCell.appendChild(statusPill);
+            row.appendChild(statusCell);
+
+            const actionCell = document.createElement('td');
+            const viewButton = receiptsApp.createButton({
+                className: 'btn btn-secondary btn-small',
+                text: 'View',
+                attrs: { 'data-receipt-view': receipt._id }
+            });
+            actionCell.appendChild(viewButton);
+            row.appendChild(actionCell);
+
+            return row;
+        }));
     } catch (error) {
-        body.innerHTML = `<tr><td colspan="6" style="color: #d9534f;">${receiptsApp.escapeHtml(error.message)}</td></tr>`;
+        receiptsApp.setTableMessage(body, 6, error.message, { color: '#d9534f', className: '' });
     }
 }
 

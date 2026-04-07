@@ -25,7 +25,7 @@ async function loadStockSection() {
         return;
     }
 
-    body.innerHTML = '<tr><td colspan="8" class="loading">Loading stock...</td></tr>';
+    stockApp.setTableMessage(body, 8, 'Loading stock...');
 
     try {
         const response = await fetch('/api/pos/products/all');
@@ -38,36 +38,37 @@ async function loadStockSection() {
         const inventoryRows = dedupeStockProducts(products);
 
         if (!inventoryRows.length) {
-            body.innerHTML = '<tr><td colspan="8" class="loading">No stock products found.</td></tr>';
+            stockApp.setTableMessage(body, 8, 'No stock products found.');
             return;
         }
 
-        body.innerHTML = inventoryRows.map((product) => `
-            <tr>
-                <td>${stockApp.escapeHtml(product.name)}</td>
-                <td>${stockApp.escapeHtml(product.category || '')}</td>
-                <td>${stockApp.escapeHtml(product.size || '')}</td>
-                <td>${stockApp.escapeHtml(product.sku || '-')}</td>
-                <td>${stockApp.formatCurrency(product.price)}</td>
-                <td>${Number(product.stockOnHand || 0)}</td>
-                <td>${Number(product.stockInWarehouse || 0)}</td>
-                <td>
-                    <button class="btn btn-secondary btn-small" data-stock-edit="${product._id}">Edit</button>
-                </td>
-            </tr>
-        `).join('');
+        stockApp.replaceChildren(body, inventoryRows.map((product) => {
+            const row = document.createElement('tr');
 
-        body.querySelectorAll('[data-stock-edit]').forEach((button) => {
-            button.addEventListener('click', async () => {
-                const product = inventoryRows.find((item) => item._id === button.getAttribute('data-stock-edit'));
-                if (product) {
-                    stockApp.openPOSProductModal?.(product);
-                }
+            row.append(
+                stockApp.createTableCell(product.name || ''),
+                stockApp.createTableCell(product.category || ''),
+                stockApp.createTableCell(product.size || ''),
+                stockApp.createTableCell(product.sku || '-'),
+                stockApp.createTableCell(stockApp.formatCurrency(product.price)),
+                stockApp.createTableCell(String(Number(product.stockOnHand || 0))),
+                stockApp.createTableCell(String(Number(product.stockInWarehouse || 0)))
+            );
+
+            const actionsCell = document.createElement('td');
+            const editButton = stockApp.createButton({
+                className: 'btn btn-secondary btn-small',
+                text: 'Edit',
+                onClick: () => stockApp.openPOSProductModal?.(product)
             });
-        });
+            actionsCell.appendChild(editButton);
+            row.appendChild(actionsCell);
+
+            return row;
+        }));
 
     } catch (error) {
-        body.innerHTML = `<tr><td colspan="8" style="color: #d9534f;">${stockApp.escapeHtml(error.message)}</td></tr>`;
+        stockApp.setTableMessage(body, 8, error.message, { color: '#d9534f', className: '' });
     }
 }
 

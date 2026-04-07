@@ -1,0 +1,501 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Uniform Shop Manager | Harris Fields State School Uniform Shop Manager</title>
+    <link rel="stylesheet" href="/css/styles.css">
+</head>
+<body>
+    <div class="container" id="appContainer">
+        <header>
+            <div class="header-shell">
+                <div>
+                    <span class="brand-kicker">Harris Fields State School</span>
+                    <h1>Uniform Shop Manager</h1>
+                    <p>Manage sales performance, forecasting, stock planning, and point of sale operations in one place</p>
+                </div>
+                <div id="sessionPanel" class="session-panel hidden">
+                    <span class="session-label">Signed in as</span>
+                    <strong id="sessionUsername">-</strong>
+                    <span id="sessionRole" class="session-role">-</span>
+                    <button id="logoutBtn" class="btn btn-secondary" type="button">Sign Out</button>
+                </div>
+            </div>
+        </header>
+
+        <nav class="navbar">
+            <button class="nav-btn" data-section="dashboard" data-route="/dashboard" type="button">Dashboard</button>
+            <button class="nav-btn" data-section="view" data-route="/sales-records" type="button">Sales Records</button>
+            <button class="nav-btn" data-section="pos" data-route="/pos" type="button">Point of Sale</button>
+            <button class="nav-btn" data-section="receipts" data-route="/receipts" type="button">Receipts</button>
+            <button class="nav-btn" data-section="stock" data-route="/stock-manager" type="button">Stock Manager</button>
+            <button id="accountNavBtn" class="nav-btn" data-section="account" data-route="/account" type="button">My Account</button>
+            <button id="accessNavBtn" class="nav-btn hidden" data-section="access" data-route="/access-management" type="button">Access Management</button>
+        </nav>
+
+        <section id="dashboard" class="section active">
+            <div class="card">
+                <h2>Sales Dashboard</h2>
+                <div id="dashboardContent" class="dashboard-layout">
+                    <p class="loading">Loading dashboard...</p>
+                </div>
+            </div>
+        </section>
+
+        <section id="view" class="section">
+            <div class="card">
+                <h2>Sales Records</h2>
+                <div class="filters">
+                    <div class="filter-group">
+                        <label>Category:</label>
+                        <select id="categoryFilter">
+                            <option value="">All Categories</option>
+                            <option value="Shirts">Shirts</option>
+                            <option value="Shorts">Shorts</option>
+                            <option value="Hat">Hat</option>
+                            <option value="Skorts">Skorts</option>
+                        </select>
+                    </div>
+                    <div class="filter-group">
+                        <label>Size:</label>
+                        <select id="sizeFilter">
+                            <option value="">All Sizes</option>
+                        </select>
+                    </div>
+                    <button id="filterBtn" class="btn btn-secondary" type="button">Apply Filters</button>
+                </div>
+                <div class="table-container">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Category</th>
+                                <th>Size</th>
+                                <th>Months</th>
+                                <th id="salesYearCol1">Year 1</th>
+                                <th id="salesYearCol2">Year 2</th>
+                                <th id="salesYearCol3">Year 3</th>
+                                <th id="salesYearCol4">Year 4</th>
+                                <th id="salesYearCol5">Year 5</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="salesTableBody">
+                            <tr><td colspan="9" class="loading">Loading data...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div class="card">
+                <h2>Add Monthly Sales Data</h2>
+                <form id="addMonthForm">
+                    <div class="form-group">
+                        <label for="monthName">Month:</label>
+                        <input type="text" id="monthName" required placeholder="e.g., Apr-26, May-26">
+                    </div>
+                    <div id="monthInputsContainer" class="months-grid"></div>
+                    <button type="submit" class="btn btn-primary">Add Month to All</button>
+                </form>
+                <div id="monthStatus" class="status-message"></div>
+            </div>
+        </section>
+
+        <section id="pos" class="section">
+            <div class="card">
+                <h2>Point of Sale</h2>
+                <p>Process counter sales, capture payment, and manage live cart activity like a quick checkout lane.</p>
+
+                <div class="filters">
+                    <div class="filter-group pos-group-filter">
+                        <label>Product Type:</label>
+                        <div class="pos-group-keys" id="posGroupKeys">
+                            <button class="btn btn-secondary pos-group-btn active" type="button" data-pos-group="Shirts">Shirts</button>
+                            <button class="btn btn-secondary pos-group-btn" type="button" data-pos-group="Shorts">Shorts</button>
+                            <button class="btn btn-secondary pos-group-btn" type="button" data-pos-group="Skorts">Skorts</button>
+                            <button class="btn btn-secondary pos-group-btn" type="button" data-pos-group="Hat">Hat</button>
+                        </div>
+                    </div>
+                    <div class="filter-group">
+                        <label for="posSearchInput">Search:</label>
+                        <input type="text" id="posSearchInput" placeholder="Search item, size, category, SKU" autocomplete="off">
+                    </div>
+                    <button id="posRefreshBtn" class="btn btn-secondary" type="button">Refresh Products</button>
+                </div>
+
+                <div class="pos-grid">
+                    <div class="pos-panel">
+                        <h3>Products</h3>
+                        <div id="posProducts" class="pos-products"></div>
+                    </div>
+
+                    <div class="pos-panel">
+                        <h3>Cart</h3>
+                        <div class="table-container">
+                            <table>
+                                <thead>
+                                    <tr>
+                                        <th>Item</th>
+                                        <th>Qty</th>
+                                        <th>Price</th>
+                                        <th>Total</th>
+                                        <th></th>
+                                    </tr>
+                                </thead>
+                                <tbody id="posCartBody"></tbody>
+                            </table>
+                        </div>
+
+                        <div class="pos-keypad-shell">
+                            <div class="pos-keypad-header">
+                                <span id="posSelectedItemLabel">No item selected</span>
+                                <strong id="posKeypadDisplay">0</strong>
+                            </div>
+                            <div class="pos-keypad-grid">
+                                <button class="btn btn-secondary pos-key-btn" type="button" data-key="7">7</button>
+                                <button class="btn btn-secondary pos-key-btn" type="button" data-key="8">8</button>
+                                <button class="btn btn-secondary pos-key-btn" type="button" data-key="9">9</button>
+                                <button class="btn btn-secondary pos-key-btn" type="button" data-key="4">4</button>
+                                <button class="btn btn-secondary pos-key-btn" type="button" data-key="5">5</button>
+                                <button class="btn btn-secondary pos-key-btn" type="button" data-key="6">6</button>
+                                <button class="btn btn-secondary pos-key-btn" type="button" data-key="1">1</button>
+                                <button class="btn btn-secondary pos-key-btn" type="button" data-key="2">2</button>
+                                <button class="btn btn-secondary pos-key-btn" type="button" data-key="3">3</button>
+                                <button class="btn btn-secondary pos-key-btn" type="button" data-key="0">0</button>
+                                <button class="btn btn-secondary pos-key-btn" type="button" data-key="00">00</button>
+                                <button class="btn btn-secondary pos-key-btn" type="button" data-key=".">.</button>
+                            </div>
+                            <div class="pos-keypad-actions">
+                                <button id="posKeyBackBtn" class="btn btn-secondary" type="button">Back</button>
+                                <button id="posKeyClearBtn" class="btn btn-secondary" type="button">Clear</button>
+                                <button id="posSetQtyBtn" class="btn btn-primary" type="button">Set Qty</button>
+                                <button id="posAddQtyBtn" class="btn btn-secondary" type="button">+ Qty</button>
+                            </div>
+                        </div>
+
+                        <div class="pos-cart-summary">
+                            <strong>Total: <span id="posCartTotal">$0.00</span></strong>
+                        </div>
+                        <p class="loading" style="padding-top: 0;">Receipt is saved automatically for every order.</p>
+                        <div>
+                            <button id="posPayCashBtn" class="btn btn-primary" type="button">Pay Cash</button>
+                            <button id="posPayCardBtn" class="btn btn-secondary" type="button">Pay Card</button>
+                            <button id="posPayCenterPayBtn" class="btn btn-secondary" type="button">Center Pay</button>
+                            <button id="posClearCartBtn" class="btn btn-danger" type="button">Clear</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section id="receipts" class="section">
+            <div class="card">
+                <h2>Receipt Register</h2>
+                <p>View saved receipts generated by POS checkouts and open a receipt preview.</p>
+
+                <div class="filters">
+                    <button id="receiptRefreshBtn" class="btn btn-secondary" type="button">Refresh</button>
+                </div>
+
+                <div class="table-container">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Order #</th>
+                                <th>Date</th>
+                                <th>Payment</th>
+                                <th>Total</th>
+                                <th>Status</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="receiptHistoryBody"></tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div class="card">
+                <h2>POS Order History</h2>
+                <div class="filters">
+                    <div class="filter-group">
+                        <label for="posOrderDate">Order Date:</label>
+                        <input type="date" id="posOrderDate">
+                    </div>
+                    <button id="posFilterOrdersBtn" class="btn btn-secondary" type="button">Filter</button>
+                    <button id="posClearOrdersBtn" class="btn btn-secondary" type="button">Clear</button>
+                </div>
+                <div class="table-container">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Order #</th>
+                                <th>Date</th>
+                                <th>Items</th>
+                                <th>Total</th>
+                                <th>Payment</th>
+                                <th>Receipt Status</th>
+                            </tr>
+                        </thead>
+                        <tbody id="posOrdersBody"></tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
+
+        <section id="stock" class="section">
+            <div class="card">
+                <div class="pos-header-row">
+                    <div>
+                        <h2>Stock Manager</h2>
+                        <p>Manage price, on-hand stock, and warehouse stock from one inventory table.</p>
+                    </div>
+                    <button id="posAddProductBtn" class="btn btn-primary" type="button">Add POS Product</button>
+                </div>
+                <div class="filters">
+                    <button id="stockRefreshBtn" class="btn btn-secondary" type="button">Refresh Stock</button>
+                    <button id="stockSyncBtn" class="btn btn-secondary" type="button">Sync Products From Sales</button>
+                </div>
+                <div class="table-container">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Name</th>
+                                <th>Category</th>
+                                <th>Size</th>
+                                <th>SKU</th>
+                                <th>Price</th>
+                                <th>On Hand</th>
+                                <th>Warehouse</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="stockTableBody"></tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
+
+        <section id="access" class="section">
+            <div class="card">
+                <div class="pos-header-row">
+                    <div>
+                        <h2>Access Management</h2>
+                        <p>Create users, assign roles, reset passwords, and disable old accounts.</p>
+                    </div>
+                    <button id="accessRefreshBtn" class="btn btn-secondary" type="button">Refresh Users</button>
+                </div>
+                <div id="accessStatus" class="status-message"></div>
+                <div class="access-grid">
+                    <div class="access-panel">
+                        <h3>Create User</h3>
+                        <form id="createUserForm">
+                            <div class="form-group">
+                                <label for="newUserUsername">Username</label>
+                                <input type="text" id="newUserUsername" autocomplete="off" placeholder="e.g. shop.staff">
+                            </div>
+                            <div class="form-group">
+                                <label for="newUserPassword">Temporary Password</label>
+                                <input type="password" id="newUserPassword" autocomplete="new-password" placeholder="At least 12 characters">
+                            </div>
+                            <div class="form-group">
+                                <label for="newUserRole">Role</label>
+                                <select id="newUserRole">
+                                    <option value="staff">Staff</option>
+                                    <option value="admin">Administrator</option>
+                                </select>
+                            </div>
+                            <button id="createUserBtn" type="submit" class="btn btn-primary">Add User</button>
+                        </form>
+                    </div>
+                    <div class="access-panel">
+                        <h3>Platform Users</h3>
+                        <div class="table-container">
+                            <table>
+                                <thead>
+                                    <tr>
+                                        <th>Username</th>
+                                        <th>Role</th>
+                                        <th>Status</th>
+                                        <th>Last Login</th>
+                                        <th>Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="usersTableBody"></tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+                <div class="access-audit-panel">
+                    <div class="pos-header-row">
+                        <div>
+                            <h3>Recent Security Activity</h3>
+                            <p>Latest sign-ins, password changes, and account administration actions.</p>
+                        </div>
+                        <button id="refreshAuditBtn" class="btn btn-secondary" type="button">Refresh Activity</button>
+                    </div>
+                    <div class="table-container">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Time</th>
+                                    <th>Action</th>
+                                    <th>Actor</th>
+                                    <th>Target</th>
+                                    <th>Details</th>
+                                </tr>
+                            </thead>
+                            <tbody id="auditLogBody"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section id="account" class="section">
+            <div class="card">
+                <div class="pos-header-row">
+                    <div>
+                        <h2>My Account</h2>
+                        <p>Update your sign-in password and review the current account security state.</p>
+                    </div>
+                </div>
+                <div id="accountNotice" class="status-message"></div>
+                <div class="account-grid">
+                    <div class="access-panel">
+                        <h3>Password</h3>
+                        <form id="changePasswordForm">
+                            <div class="form-group">
+                                <label for="currentPasswordInput">Current Password</label>
+                                <input type="password" id="currentPasswordInput" autocomplete="current-password">
+                            </div>
+                            <div class="form-group">
+                                <label for="newPasswordInput">New Password</label>
+                                <input type="password" id="newPasswordInput" autocomplete="new-password" placeholder="At least 12 characters with upper, lower, and a number">
+                            </div>
+                            <div class="form-group">
+                                <label for="confirmPasswordInput">Confirm New Password</label>
+                                <input type="password" id="confirmPasswordInput" autocomplete="new-password">
+                            </div>
+                            <button id="changePasswordBtn" type="submit" class="btn btn-primary">Update Password</button>
+                        </form>
+                        <div id="changePasswordStatus" class="status-message"></div>
+                    </div>
+                    <div class="access-panel">
+                        <h3>Account Summary</h3>
+                        <div class="account-summary-list">
+                            <div class="account-summary-item">
+                                <span>Username</span>
+                                <strong id="accountUsername">-</strong>
+                            </div>
+                            <div class="account-summary-item">
+                                <span>Role</span>
+                                <strong id="accountRole">-</strong>
+                            </div>
+                            <div class="account-summary-item">
+                                <span>Password Status</span>
+                                <strong id="accountPasswordState">Current</strong>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+    </div>
+
+    <div id="editModal" class="modal">
+        <div class="modal-content">
+            <span class="close">&times;</span>
+            <h2>Edit Record: <span id="editTitle"></span></h2>
+            <div id="editForm">
+                <div id="editMonths" class="months-grid"></div>
+                <button id="saveEditBtn" class="btn btn-primary" type="button">Save Changes</button>
+                <button id="closeEditBtn" class="btn btn-secondary" type="button">Cancel</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="posProductModal" class="modal">
+        <div class="modal-content">
+            <span id="posProductClose" class="close">&times;</span>
+            <h2 id="posProductModalTitle">Add POS Product</h2>
+            <div class="form-group">
+                <label for="posProductName">Name</label>
+                <input type="text" id="posProductName" placeholder="Product name">
+            </div>
+            <div class="form-group">
+                <label for="posProductCategory">Category</label>
+                <input type="text" id="posProductCategory" placeholder="Category">
+            </div>
+            <div class="form-group">
+                <label for="posProductSize">Size</label>
+                <input type="text" id="posProductSize" placeholder="Size (optional)">
+            </div>
+            <div class="form-group">
+                <label for="posProductSku">SKU</label>
+                <input type="text" id="posProductSku" placeholder="SKU (optional)">
+            </div>
+            <div class="form-group">
+                <label for="posProductPrice">Price</label>
+                <input type="number" id="posProductPrice" min="0" step="0.01" placeholder="0.00">
+            </div>
+            <div class="form-group">
+                <label for="posProductStockOnHand">Stock On Hand</label>
+                <input type="number" id="posProductStockOnHand" min="0" step="1" placeholder="0">
+            </div>
+            <div class="form-group">
+                <label for="posProductStockWarehouse">Stock In Warehouse</label>
+                <input type="number" id="posProductStockWarehouse" min="0" step="1" placeholder="0">
+            </div>
+            <button id="posSaveProductBtn" class="btn btn-primary" type="button">Save</button>
+            <button id="posCancelProductBtn" class="btn btn-secondary" type="button">Cancel</button>
+        </div>
+    </div>
+
+    <div id="userModal" class="modal">
+        <div class="modal-content">
+            <span id="userModalClose" class="close">&times;</span>
+            <h2 id="userModalTitle">Manage User</h2>
+            <div class="form-group">
+                <label for="manageUserUsername">Username</label>
+                <input type="text" id="manageUserUsername" autocomplete="off">
+            </div>
+            <div class="form-group">
+                <label for="manageUserRole">Role</label>
+                <select id="manageUserRole">
+                    <option value="staff">Staff</option>
+                    <option value="admin">Administrator</option>
+                </select>
+            </div>
+            <div class="form-group checkbox-row">
+                <label for="manageUserActive">Active account</label>
+                <input type="checkbox" id="manageUserActive" checked>
+            </div>
+            <div class="form-group">
+                <label for="manageUserPassword">Reset Password</label>
+                <input type="password" id="manageUserPassword" autocomplete="new-password" placeholder="Leave blank to keep current password">
+            </div>
+            <button id="saveUserBtn" class="btn btn-primary" type="button">Save User</button>
+            <button id="cancelUserBtn" class="btn btn-secondary" type="button">Cancel</button>
+        </div>
+    </div>
+
+    <div id="receiptPreviewModal" class="modal">
+        <div class="modal-content">
+            <span id="receiptPreviewClose" class="close">&times;</span>
+            <h2>Receipt Preview</h2>
+            <pre id="receiptPreviewText" style="white-space: pre-wrap; font-family: Consolas, monospace; margin-top: 10px;"></pre>
+        </div>
+    </div>
+
+    <script src="/js/core.js"></script>
+    <script src="/js/dashboard.js"></script>
+    <script src="/js/sales.js"></script>
+    <script src="/js/pos.js"></script>
+    <script src="/js/receipts.js"></script>
+    <script src="/js/stock.js"></script>
+    <script src="/js/access.js"></script>
+    <script src="/js/navigation.js"></script>
+    <script src="/js/auth.js"></script>
+    <script src="/js/app.js"></script>
+</body>
+</html>
