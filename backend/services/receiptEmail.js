@@ -1,34 +1,3 @@
-import nodemailer from "nodemailer";
-
-let cachedTransporter = null;
-
-function createTransporter() {
-  const host = process.env.SMTP_HOST;
-  const port = Number(process.env.SMTP_PORT || 587);
-  const user = process.env.SMTP_USER;
-  const pass = process.env.SMTP_PASS;
-
-  if (!host || !user || !pass) {
-    return null;
-  }
-
-  return nodemailer.createTransport({
-    host,
-    port,
-    secure: port === 465,
-    auth: { user, pass }
-  });
-}
-
-function getTransporter() {
-  if (cachedTransporter) {
-    return cachedTransporter;
-  }
-
-  cachedTransporter = createTransporter();
-  return cachedTransporter;
-}
-
 export function buildReceiptContent(order) {
   const createdAt = new Date(order.createdAt || Date.now()).toLocaleString("en-AU");
   const lines = (order.items || [])
@@ -67,28 +36,4 @@ export function buildReceiptContent(order) {
   `;
 
   return { text, html };
-}
-
-export async function sendReceiptEmail({ toEmail, order }) {
-  const transporter = getTransporter();
-  if (!transporter) {
-    return { sent: false, reason: "SMTP is not configured" };
-  }
-
-  const fromAddress = process.env.RECEIPT_FROM || process.env.SMTP_FROM || process.env.SMTP_USER;
-  const { text, html } = buildReceiptContent(order);
-
-  try {
-    const result = await transporter.sendMail({
-      from: fromAddress,
-      to: toEmail,
-      subject: `Receipt ${order.orderNumber}`,
-      text,
-      html
-    });
-
-    return { sent: true, messageId: result.messageId };
-  } catch (error) {
-    return { sent: false, reason: error.message || "Unable to send receipt email" };
-  }
 }

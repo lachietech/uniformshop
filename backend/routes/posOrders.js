@@ -1,4 +1,5 @@
 import express from "express";
+import mongoose from "mongoose";
 import POSOrder from "../models/POSOrder.js";
 import POSProduct from "../models/POSProduct.js";
 import { applyPosOrderToSales } from "../services/posIntegration.js";
@@ -7,6 +8,18 @@ import { buildReceiptContent } from "../services/receiptEmail.js";
 const router = express.Router();
 
 const ALLOWED_PAYMENT_METHODS = ["cash", "card", "center-pay"];
+
+function isValidObjectId(value) {
+  return mongoose.Types.ObjectId.isValid(String(value || ""));
+}
+
+function parseBoundedInt(value, fallback, { min = 0, max = Number.MAX_SAFE_INTEGER } = {}) {
+  const parsed = Number.parseInt(value, 10);
+  if (!Number.isFinite(parsed)) {
+    return fallback;
+  }
+  return Math.min(max, Math.max(min, parsed));
+}
 
 function generateOrderNumber() {
   const now = new Date();
@@ -17,8 +30,8 @@ function generateOrderNumber() {
 
 router.get("/", async (req, res) => {
   try {
-    const limit = Math.min(parseInt(req.query.limit, 10) || 100, 500);
-    const skip = parseInt(req.query.skip, 10) || 0;
+    const limit = parseBoundedInt(req.query.limit, 100, { min: 1, max: 500 });
+    const skip = parseBoundedInt(req.query.skip, 0, { min: 0, max: 100000 });
     const filter = {};
 
     if (req.query.date) {
@@ -44,7 +57,7 @@ router.get("/", async (req, res) => {
 
 router.get("/receipts", async (req, res) => {
   try {
-    const limit = Math.min(parseInt(req.query.limit, 10) || 100, 500);
+    const limit = parseBoundedInt(req.query.limit, 100, { min: 1, max: 500 });
     const receipts = await POSOrder.find({})
       .sort({ createdAt: -1 })
       .limit(limit)
@@ -58,6 +71,10 @@ router.get("/receipts", async (req, res) => {
 
 router.get("/:id/receipt", async (req, res) => {
   try {
+    if (!isValidObjectId(req.params.id)) {
+      return res.status(400).json({ error: "Invalid order id" });
+    }
+
     const order = await POSOrder.findById(req.params.id).lean();
     if (!order) {
       return res.status(404).json({ error: "Order not found" });
@@ -89,9 +106,14 @@ router.post("/", async (req, res) => {
       return res.status(400).json({ error: "Invalid payment method" });
     }
 
-    const productIds = items
-      .map((item) => item.productId)
-      .filter(Boolean);
+    const productIds = [];
+    for (const item of items) {
+      if (!isValidObjectId(item.productId)) {
+        return res.status(400).json({ error: "Invalid product id in order item" });
+      }
+      productIds.push(item.productId);
+    }
+
     const products = await POSProduct.find({ _id: { $in: productIds }, active: true }).lean();
     const productsById = new Map(products.map((product) => [String(product._id), product]));
 
@@ -147,8 +169,22 @@ router.post("/", async (req, res) => {
 
     await order.save();
 
+    const stockDeltas = new Map();
     for (const item of normalizedItems) {
-      await POSProduct.findByIdAndUpdate(item.productId, { $inc: { stockOnHand: -Number(item.qty || 0) } });
+      const productId = String(item.productId);
+      const currentDelta = stockDeltas.get(productId) || 0;
+      stockDeltas.set(productId, currentDelta + Number(item.qty || 0));
+    }
+
+    if (stockDeltas.size) {
+      await POSProduct.bulkWrite(
+        [...stockDeltas.entries()].map(([productId, quantity]) => ({
+          updateOne: {
+            filter: { _id: productId },
+            update: { $inc: { stockOnHand: -quantity } }
+          }
+        }))
+      );
     }
 
     await applyPosOrderToSales(normalizedItems);

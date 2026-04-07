@@ -162,7 +162,8 @@ export async function syncPosProductsFromSalesRecords() {
 
 export async function applyPosOrderToSales(items) {
   const monthLabel = getCurrentMonthLabel();
-  const incrementsByRecord = new Map();
+  const incrementsByRecordId = new Map();
+  const incrementsByVariant = new Map();
 
   for (const item of items) {
     const quantity = Number(item.qty || 0);
@@ -170,38 +171,97 @@ export async function applyPosOrderToSales(items) {
       continue;
     }
 
-    const key = item.salesRecordId
-      ? `id:${item.salesRecordId}`
-      : `key:${item.category || ""}::${item.size || ""}`;
-
-    const existingQty = incrementsByRecord.get(key) || 0;
-    incrementsByRecord.set(key, existingQty + quantity);
-  }
-
-  for (const [key, quantity] of incrementsByRecord.entries()) {
-    let sale = null;
-
-    if (key.startsWith("id:")) {
-      const salesRecordId = key.slice(3);
-      sale = await Sales.findById(salesRecordId);
-    } else {
-      const [, payload] = key.split("key:");
-      const [category, size] = payload.split("::");
-      sale = await Sales.findOne({ category, size });
+    if (item.salesRecordId) {
+      const key = String(item.salesRecordId);
+      incrementsByRecordId.set(key, (incrementsByRecordId.get(key) || 0) + quantity);
+      continue;
     }
 
+    const category = String(item.category || "").trim();
+    const size = String(item.size || "").trim();
+    if (!category || !size) {
+      continue;
+    }
+
+    const variantKey = `${category}::${size}`;
+    incrementsByVariant.set(variantKey, (incrementsByVariant.get(variantKey) || 0) + quantity);
+  }
+
+  const [salesById, salesByVariant] = await Promise.all([
+    incrementsByRecordId.size
+      ? Sales.find({ _id: { $in: [...incrementsByRecordId.keys()] } }).select("_id category size months sales").lean()
+      : Promise.resolve([]),
+    incrementsByVariant.size
+      ? Sales.find({
+        $or: [...incrementsByVariant.keys()].map((variantKey) => {
+          const [category, size] = variantKey.split("::");
+          return { category, size };
+        })
+      }).select("_id category size months sales").lean()
+      : Promise.resolve([])
+  ]);
+
+  const salesByIdMap = new Map();
+  for (const sale of [...salesById, ...salesByVariant]) {
+    salesByIdMap.set(String(sale._id), sale);
+  }
+
+  const quantitiesBySaleId = new Map();
+  for (const [recordId, quantity] of incrementsByRecordId.entries()) {
+    if (!salesByIdMap.has(recordId)) {
+      continue;
+    }
+    quantitiesBySaleId.set(recordId, (quantitiesBySaleId.get(recordId) || 0) + quantity);
+  }
+
+  const variantToSaleId = new Map(
+    salesByVariant.map((sale) => [`${String(sale.category || "").trim()}::${String(sale.size || "").trim()}`, String(sale._id)])
+  );
+  for (const [variantKey, quantity] of incrementsByVariant.entries()) {
+    const saleId = variantToSaleId.get(variantKey);
+    if (!saleId) {
+      continue;
+    }
+    quantitiesBySaleId.set(saleId, (quantitiesBySaleId.get(saleId) || 0) + quantity);
+  }
+
+  if (!quantitiesBySaleId.size) {
+    return;
+  }
+
+  const operations = [];
+  for (const [saleId, quantity] of quantitiesBySaleId.entries()) {
+    const sale = salesByIdMap.get(saleId);
     if (!sale) {
       continue;
     }
 
-    const monthIndex = sale.months.findIndex((month) => month === monthLabel);
+    const months = [...(sale.months || [])];
+    const sales = [...(sale.sales || [])].map((value) => Number(value || 0));
+    const monthIndex = months.findIndex((month) => month === monthLabel);
+
     if (monthIndex >= 0) {
-      sale.sales[monthIndex] = Number(sale.sales[monthIndex] || 0) + quantity;
+      sales[monthIndex] = Number(sales[monthIndex] || 0) + quantity;
     } else {
-      sale.months.push(monthLabel);
-      sale.sales.push(quantity);
+      months.push(monthLabel);
+      sales.push(quantity);
     }
 
-    await sale.save();
+    operations.push({
+      updateOne: {
+        filter: { _id: saleId },
+        update: {
+          $set: {
+            months,
+            sales,
+            updatedAt: new Date()
+          }
+        }
+      }
+    });
+  }
+
+  if (operations.length) {
+    await Sales.bulkWrite(operations);
   }
 }

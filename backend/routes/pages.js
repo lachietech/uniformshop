@@ -1,5 +1,4 @@
 import express from "express";
-import fs from "fs";
 import path from "path";
 import { resolveAuthenticatedUser } from "../middleware/auth.js";
 
@@ -59,8 +58,7 @@ router.get("/signin", async (req, res) => {
     return res.redirect(nextTarget);
   }
 
-  const signinTemplate = fs.readFileSync(signinPath, "utf8");
-  return res.send(signinTemplate);
+  return res.sendFile(signinPath);
 });
 
 router.get("/monthly-update", requirePageAuth, (req, res) => {
